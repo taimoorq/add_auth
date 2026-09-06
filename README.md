@@ -62,10 +62,15 @@ Hotwire/no-JS-compatible generated views. Devise-parity password workflows
 specified in the design doc but deferred to v2, pending real usage data. See
 design doc sections 14 and 15.
 
+## Roadmap
+
+Track v1 progress in [ROADMAP.md](ROADMAP.md) -- checked off incrementally as
+each piece lands, derived from the design doc's scope decision.
+
 ## Contributing
 
 Not yet accepting contributions -- v1 doesn't exist yet. Filing issues that
-poke holes in the design doc is welcome.
+poke holes in the design doc or the roadmap is welcome.
 
 ## License
 

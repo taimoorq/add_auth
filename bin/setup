@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+cd "$(dirname "$0")/.."
+
+echo "== Bundling gems =="
+bundle install
+
+# Add further setup steps here (e.g. dummy-app db:prepare) as they're needed.

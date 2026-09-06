@@ -1,0 +1,19 @@
+# Concretely implements the workspace repo's AGENTS.md "currency" mandate
+# for dependency updates: Rails, webauthn-ruby, bcrypt, and Ruby tooling all
+# get automated, weekly update PRs rather than relying on someone remembering
+# to check quarterly. The quarterly review in AGENTS.md is for the things
+# Dependabot can't see -- Rails release notes, the WebAuthn spec, the
+# competitor landscape -- not for dependency version bumps themselves.
+version: 2
+updates:
+  - package-ecosystem: bundler
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      rails:
+        patterns: ["rails", "railties", "activesupport", "activemodel", "actionpack", "activerecord"]
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

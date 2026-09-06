@@ -1,0 +1,37 @@
+# Publishes to RubyGems via Trusted Publishing (OIDC) -- no API key is ever
+# stored in this repo or in RubyGems credentials. See
+# https://guides.rubygems.org/trusted-publishing/ and the workspace repo's
+# AGENTS.md "Publishing and supply chain" section for why this is preferred
+# over a long-lived RUBYGEMS_API_KEY secret.
+#
+# Filename, repository owner/name, and the "release" environment below must
+# match exactly what is configured at
+# https://rubygems.org/profile/oidc/pending_trusted_publishers (before the
+# first release) or the gem's own "Trusted publishers" page (after).
+name: Push gem
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      id-token: write
+
+    environment: release
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+          ruby-version: ruby
+      - uses: rubygems/release-gem@v1

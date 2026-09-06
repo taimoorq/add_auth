@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: "Ruby ${{ matrix.ruby }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Keep in sync with the version-floor policy in the workspace repo's
+        # AGENTS.md: the oldest entry here must always be a currently
+        # security-patched Ruby series (https://endoflife.date/ruby), not
+        # just latchkey.gemspec's stated floor. Re-check quarterly.
+        ruby: ["3.3", "3.4"]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Run specs
+        run: bundle exec rspec
+      - name: Lint
+        run: bundle exec standardrb
+
+  # TODO: once the Rails::Engine, generators, and controllers have real,
+  # Rails-dependent specs (a dummy app under spec/dummy), add a second job
+  # matrixed on supported Rails versions (currently 8.0 and 8.1 -- see the
+  # design doc's version-floor reasoning) using separate gemfiles/ per
+  # version, not just whatever `bundle install` happens to resolve today.
+  # Today's specs are plain Ruby and don't exercise Rails at all, so a Rails
+  # matrix would currently test nothing extra.
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: bundler-audit
+        run: |
+          gem install bundler-audit
+          bundler-audit check --update

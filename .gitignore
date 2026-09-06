@@ -1,0 +1,9 @@
+/.bundle/
+/tmp/
+/pkg/
+/spec/dummy/tmp/
+/spec/dummy/log/
+/spec/dummy/db/*.sqlite3
+.DS_Store
+*.gem
+Gemfile.lock

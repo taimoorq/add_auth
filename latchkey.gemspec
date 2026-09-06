@@ -21,7 +21,13 @@ Gem::Specification.new do |spec|
   DESC
   spec.homepage    = "https://github.com/taimoorq/latchkey"
   spec.license     = "MIT"
-  spec.required_ruby_version = ">= 3.2.0"
+  # Rails 8.0/8.1 both tolerate Ruby >= 3.2.0 -- but the 3.2 series itself
+  # reached end-of-life on 2026-03-31 (no more upstream security patches).
+  # An authentication gem sets its floor at the oldest Ruby series still
+  # receiving security patches, not just at whatever Rails will tolerate --
+  # those are different questions that happen to be the same answer only
+  # when Ruby's EOL clock and Rails' own floor haven't drifted apart.
+  spec.required_ruby_version = ">= 3.3.0"
 
   spec.metadata["homepage_uri"]    = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
@@ -41,7 +47,9 @@ Gem::Specification.new do |spec|
   # Cryptographic primitives only. Everything else (sessions, tokens, views,
   # generators) is Latchkey's own code on top of Rails 8 primitives -- see
   # "Dependencies" in the design doc for why this list stays short.
-  spec.add_dependency "rails", ">= 8.1"
+  # Rails 8.0 is the actual floor: that's the release that shipped
+  # `bin/rails generate authentication`, the generator this gem extends.
+  spec.add_dependency "rails", ">= 8.0"
   spec.add_dependency "webauthn", "~> 3.0"
   spec.add_dependency "bcrypt", "~> 3.1.7"
 

@@ -1,0 +1,9 @@
+<h1 id="add_auth-title">Confirm your sign-in</h1>
+<p>Sign in as <strong><%= @preview.fetch(:masked_address) %></strong> on this device.</p>
+<p class="<%= add_auth_class(:muted) %>">This will replace any account currently signed in on this browser.</p>
+<%= form_with url: "/sign-in/link", data: {turbo_frame: "_top"} do |form| %>
+  <%= form.hidden_field :token, value: params[:token] %>
+  <%= form.hidden_field :switch_account, value: "1" %>
+  <%= form.submit "Sign in to this account", class: add_auth_class(:button) %>
+<% end %>
+<p><%= link_to "Cancel", "/sign-in", class: add_auth_class(:link) %></p>

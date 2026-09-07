@@ -1,0 +1,18 @@
+<% content_for :title, "Sign out everywhere" %>
+<h1 id="add_auth-title">Sign out everywhere</h1>
+<p class="<%= add_auth_class(:muted) %>">Revoke every active session, including this browser. This requires a recent verification.</p>
+<% if @error %><p class="<%= add_auth_class(:notice) %>" role="alert"><%= @error %></p><% end %>
+<% if @elevated || @password_available != false %>
+<%= form_with url: "/sessions/revoke-all", data: add_auth_challenge_form_data(:reauthenticate) do |form| %>
+  <% unless @elevated %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :password, "Current password" %>
+    <%= form.password_field :password, required: true, autocomplete: "current-password", class: add_auth_class(:input) %>
+  </div>
+  <% end %>
+  <%= add_auth_challenge_tag :reauthenticate %>
+  <%= form.submit "Sign out everywhere", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+<% end %>
+<% end %>
+<% if AddAuth.configuration.step_up.enabled %><p><%= link_to "Verify with an allowed method", "/reauthenticate?purpose=sign_out_everywhere" %></p><% end %>
+<p><%= link_to "Cancel", "/sessions", class: add_auth_class(:link) %></p>

@@ -20,7 +20,7 @@ RSpec.describe "Reauthentication browser journeys", database: true do
 
   before { ActiveJob::Base.queue_adapter = :inline }
 
-  %i[latchkey_chrome latchkey_no_js].each do |driver|
+  %i[add_auth_chrome add_auth_no_js].each do |driver|
     %i[password email_link].each do |method|
       it "verifies with #{method} in #{driver} then waits for a separate confirmation" do
         browser = Capybara::Session.new(driver, Rails.application)

@@ -21,9 +21,9 @@ RSpec.describe "Passkey browser journeys", database: true do
   before { ActiveJob::Base.queue_adapter = :inline }
 
   def browser_with_authenticator(conditional: false)
-    browser = Capybara::Session.new(:latchkey_chrome, Rails.application)
+    browser = Capybara::Session.new(:add_auth_chrome, Rails.application)
     @origin = "http://localhost:#{browser.server.port}"
-    Latchkey.configuration.passkeys.origins = [@origin]
+    AddAuth.configuration.passkeys.origins = [@origin]
     unless conditional
       # Model a capable browser without conditional mediation; verification
       # still uses the actual native WebAuthn API and virtual authenticator.
@@ -56,7 +56,7 @@ RSpec.describe "Passkey browser journeys", database: true do
     expect(browser).to have_text("Your passkeys")
     browser.click_button "Add a passkey"
     expect(browser).to have_css("h2", text: "Passkey", exact_text: true)
-    expect(LatchkeyCredential.count).to eq(1)
+    expect(AddAuthCredential.count).to eq(1)
   end
 
   it "enrolls, renames, signs in, verifies and activates strict policy using the native browser API" do
@@ -79,7 +79,7 @@ RSpec.describe "Passkey browser journeys", database: true do
     browser.check "I understand the recovery limits and have tested another way to access my account."
     browser.click_button "Require passkeys for this account"
     expect(browser).to have_text("Strict: passkeys are required")
-    expect(user.reload.latchkey_strict).to be(true)
+    expect(user.reload.add_auth_strict).to be(true)
     @virtual.remove!
     visit(browser, "/sessions")
     browser.click_button "Sign out", exact: true
@@ -101,7 +101,7 @@ RSpec.describe "Passkey browser journeys", database: true do
     expect(browser).to have_current_path("/")
     expect(browser).to have_text("Signed in")
     expect(Session.last.authenticated_with).to eq("passkey")
-    expect(LatchkeyCredential.last.last_used_at).to be_present
+    expect(AddAuthCredential.last.last_used_at).to be_present
   ensure
     browser&.quit
   end
@@ -109,7 +109,7 @@ RSpec.describe "Passkey browser journeys", database: true do
   it "completes explicit delivered-mail recovery on a replacement authenticator" do
     browser = browser_with_authenticator
     enroll(browser)
-    lost = LatchkeyCredential.last
+    lost = AddAuthCredential.last
     visit(browser, "/sessions")
     browser.click_button "Sign out", exact: true
     expect(browser).to have_css("h1", text: "Sign in", exact_text: true)
@@ -135,9 +135,9 @@ RSpec.describe "Passkey browser journeys", database: true do
   end
 
   it "shows an honest no-JS unavailable state and keeps permitted password access usable" do
-    browser = Capybara::Session.new(:latchkey_no_js, Rails.application)
+    browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     @origin = "http://localhost:#{browser.server.port}"
-    Latchkey.configuration.passkeys.origins = [@origin]
+    AddAuth.configuration.passkeys.origins = [@origin]
     password_sign_in(browser)
     visit(browser, "/passkeys")
     expect(browser).to have_text("Passkeys need JavaScript and a compatible browser")

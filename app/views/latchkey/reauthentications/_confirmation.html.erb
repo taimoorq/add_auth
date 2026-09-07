@@ -1,7 +1,0 @@
-<h1 id="latchkey-title">Confirm this verification</h1>
-<p>Verify <strong><%= @preview.fetch(:masked_address) %></strong> in the browser where you started. You’ll return to review the action before submitting it.</p>
-<%= form_with url: "/reauthenticate/link", data: {turbo_frame: "_top"} do |form| %>
-  <%= form.hidden_field :token, value: params[:token] %>
-  <%= form.submit "Confirm verification", class: latchkey_class(:button) %>
-<% end %>
-<%= link_to "Cancel", "/", class: latchkey_class(:link) %>

@@ -1,12 +1,12 @@
 # Roadmap
 
-Latchkey extends Rails 8's `bin/rails generate authentication` with email-link
+AddAuth extends Rails 8's `bin/rails generate authentication` with email-link
 sign-in, passkeys, purpose-bound reauthentication, session hardening and pluggable
 captcha. It reuses the host's accounts and Session model.
 
 The canonical design lives in the companion **private** planning workspace:
-[scope](https://github.com/taimoorq/latchkey-workspace/blob/master/docs/authentication-gem-plan.md#14-scope-decision-and-roadmap)
-and [user journeys, contracts and test plan](https://github.com/taimoorq/latchkey-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan).
+[scope](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#14-scope-decision-and-roadmap)
+and [user journeys, contracts and test plan](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan).
 Those links require workspace access. This public checklist stands on its own as
 progress tracking; it does not duplicate the private design. Engineering guidance
 stays only in that workspace's `AGENTS.md`.
@@ -21,7 +21,7 @@ Local acceptance passes **279 RSpec examples plus 22 ejected-UI examples** on ea
 Ruby 3.3.11/3.4.8/4.0.5 × Rails 8.0.5.1/8.1.3.1 combination. Standard is clean.
 PostgreSQL passes **181 store/request examples on each Rails line**. Refreshed
 root and both Rails dependency audits report no known vulnerabilities. The
-[canonical evidence ledger](https://github.com/taimoorq/latchkey-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan)
+[canonical evidence ledger](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan)
 records successful commands and the failures that led to corrections. Checked
 items mean passing relevant local specs; remote CI/CodeQL, live-service validation,
 real-device diversity, dogfooding and release acceptance remain open.
@@ -54,9 +54,9 @@ be weakened to simulate no-JS parity.
 
 ## 1. Core primitives
 
-- [x] `Latchkey::Result` — closed success/failure type for auth outcomes.
-- [x] `Latchkey::Configuration` / `Latchkey.configure`.
-- [x] Challenge adapter contract (`Latchkey::Core::Challenge::Base`) with the
+- [x] `AddAuth::Result` — closed success/failure type for auth outcomes.
+- [x] `AddAuth::Configuration` / `AddAuth.configure`.
+- [x] Challenge adapter contract (`AddAuth::Core::Challenge::Base`) with the
       three-state result (success / rejected / unavailable).
 - [x] `Challenge::Null` (default, always succeeds) and `Challenge::Test`
       (configurable, for specs) adapters.
@@ -81,7 +81,7 @@ be weakened to simulate no-JS parity.
 
 ## 3. Adopt the host's sessions and password flow — slice B, U1/U8
 
-- [x] Inert `latchkey:install` configuration plus additive `session_upgrade`
+- [x] Inert `add_auth:install` configuration plus additive `session_upgrade`
       migration and shared lifecycle hooks; repeat generation preserves edits.
 - [x] Bounded signed-ID cookie transition to random digested bearers, with
       real signature/tamper, race, cutoff and revocation tests.
@@ -177,15 +177,15 @@ be weakened to simulate no-JS parity.
 
 ## 8. Generators, ejection and integrated acceptance — slice G
 
-- [x] `latchkey:install` writes inert configuration; session/email feature
+- [x] `add_auth:install` writes inert configuration; session/email feature
       generators add reviewable wiring and preserve edits on repeat runs.
-- [x] `latchkey:views`, `latchkey:controllers`, `latchkey:javascript` and
-      `latchkey:mailer_views` reuse the same Core policy, presenter and templates.
-- [x] `latchkey:challenge` writes environment-keyed Turnstile/reCAPTCHA config,
+- [x] `add_auth:views`, `add_auth:controllers`, `add_auth:javascript` and
+      `add_auth:mailer_views` reuse the same Core policy, presenter and templates.
+- [x] `add_auth:challenge` writes environment-keyed Turnstile/reCAPTCHA config,
       adds the fixed challenge route and preserves an existing initializer.
-- [x] `latchkey:doctor` checks deployment origins, cookies/session metadata,
+- [x] `add_auth:doctor` checks deployment origins, cookies/session metadata,
       delivery, migrations and challenge policy/routes.
-- [x] `latchkey:doctor` checks recovery policy and generated-file drift.
+- [x] `add_auth:doctor` checks recovery policy and generated-file drift.
 - [x] Every generated flow exercised before and after ejection, with Turbo
       Drive/Frames/Streams, ordinary HTML, no-JS alternatives and strict denial.
 - [x] Auth-page cache/referrer protections, redacted app/job telemetry,
@@ -211,7 +211,7 @@ be weakened to simulate no-JS parity.
 
 ## v2 — reassess after v1 usage
 
-- [ ] Latchkey-owned password registration/reset, confirmation, lockout and
+- [ ] AddAuth-owned password registration/reset, confirmation, lockout and
       password policy. Existing host password integration is part of v1.
 - [ ] Password-hashing adapter seam, following the canonical cryptography
       policy and Rails support available at implementation time.
@@ -228,7 +228,7 @@ Owner and deadline details remain in the canonical plan's section 16.
 - [ ] Validate lifetime, resend, retention, key rotation and legacy-bridge
       defaults before the first adopter enables the affected flow.
 - [x] Framework-neutral mail and virtual-authenticator helpers; no
-      Minitest-specific integration DSL. Latchkey's own suite stays RSpec.
+      Minitest-specific integration DSL. AddAuth's own suite stays RSpec.
 - [ ] Revisit API/token authentication after v1; outside current scope.
 
 ## Potential standalone libraries

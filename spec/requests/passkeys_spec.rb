@@ -22,7 +22,7 @@ RSpec.describe "Public passkey verification", type: :request, database: true do
     credential = authenticator.create(challenge: start.fetch("publicKey").fetch("challenge"), user_verified: true)
     post "/passkeys", params: {transaction: start.fetch("transaction"), credential: credential}, headers: headers, as: :json
     expect(response).to have_http_status(200)
-    LatchkeyCredential.last
+    AddAuthCredential.last
   end
 
   def elevate(purpose)
@@ -40,14 +40,14 @@ RSpec.describe "Public passkey verification", type: :request, database: true do
     ActionController::Base.allow_forgery_protection = true
     post "/passkeys/options", as: :json
     expect(response).to have_http_status(422)
-    expect(LatchkeyCeremony.count).to eq(0)
+    expect(AddAuthCeremony.count).to eq(0)
     get "/passkeys"
     expect(response.headers).to include("Cache-Control" => "no-store", "Referrer-Policy" => "no-referrer")
     csrf = Nokogiri::HTML(response.body).at_css('meta[name="csrf-token"]')["content"]
     expect(enroll(headers: {"X-CSRF-Token" => csrf})).to be_present
     post "/passkeys", params: {transaction: "untrusted", credential: {}}, as: :json
     expect(response).to have_http_status(422)
-    expect(LatchkeyCredential.count).to eq(1)
+    expect(AddAuthCredential.count).to eq(1)
   ensure
     ActionController::Base.allow_forgery_protection = previous
   end
@@ -74,7 +74,7 @@ RSpec.describe "Public passkey verification", type: :request, database: true do
     credential.update!(user: other)
     patch "/passkeys/#{credential.id}", params: {nickname: "stolen"}, headers: {"Accept" => "text/vnd.turbo-stream.html"}
     expect(response).to have_http_status(422)
-    expect(response.body).to include('target="latchkey-content"')
+    expect(response.body).to include('target="add_auth-content"')
     delete "/passkeys/#{credential.id}"
     expect(response).to have_http_status(422)
     expect(credential.reload).to have_attributes(nickname: "Passkey", revoked_at: nil)
@@ -82,12 +82,12 @@ RSpec.describe "Public passkey verification", type: :request, database: true do
 
   it "returns safely after passkey rotation when the purpose disappears" do
     enroll
-    allow(Latchkey::Rails::Runtime).to receive(:passkeys).and_wrap_original do |original|
+    allow(AddAuth::Rails::Runtime).to receive(:passkeys).and_wrap_original do |original|
       service = original.call
       allow(service).to receive(:authenticate).and_wrap_original do |verify, **args|
         result = verify.call(**args)
         expect(result).to be_success
-        Latchkey.configuration.step_up.purposes.delete(:strong)
+        AddAuth.configuration.step_up.purposes.delete(:strong)
         result
       end
       service
@@ -104,7 +104,7 @@ RSpec.describe "Anonymous passkey availability", type: :request, database: true 
   before { host! "localhost" }
 
   it "returns an honest 503 for invalid configuration without creating a ceremony or session" do
-    config = Latchkey.configuration.passkeys
+    config = AddAuth.configuration.passkeys
     original = config.dup
     [{rp_id: nil}, {origins: []}, {origins: [nil]}, {anonymous_limit: 0}].each do |invalid|
       config.members.each { |field| config[field] = original[field] }
@@ -114,21 +114,21 @@ RSpec.describe "Anonymous passkey availability", type: :request, database: true 
       expect(response.headers).to include("Cache-Control" => "no-store", "Retry-After" => "60")
       expect(response.parsed_body.fetch("error")).to include("temporarily unavailable")
     end
-    expect(LatchkeyCeremony.count).to eq(0)
+    expect(AddAuthCeremony.count).to eq(0)
     expect(Session.count).to eq(0)
   end
 
   it "caps creation across different IP addresses and allows existing ceremonies to be cancelled" do
-    Latchkey.configuration.passkeys.anonymous_limit = 2
+    AddAuth.configuration.passkeys.anonymous_limit = 2
     starts = 3.times.map do |attempt|
       post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => "192.0.2.#{attempt + 1}"}, as: :json
       [response.status, response.parsed_body]
     end
     expect(starts.map(&:first)).to eq([200, 200, 429])
-    expect(LatchkeyCeremony.count).to eq(2)
+    expect(AddAuthCeremony.count).to eq(2)
     expect(Session.count).to eq(0)
     post "/passkeys/cancel", params: {transaction: starts.first.last.fetch("transaction")}, as: :json
     expect(response).to have_http_status(204)
-    expect(LatchkeyCeremony.where.not(consumed_at: nil).count).to eq(1)
+    expect(AddAuthCeremony.where.not(consumed_at: nil).count).to eq(1)
   end
 end

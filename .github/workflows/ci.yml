@@ -18,7 +18,7 @@ jobs:
         # Keep in sync with the version-floor policy in the workspace repo's
         # AGENTS.md: the oldest entry here must always be a currently
         # security-patched Ruby series (https://endoflife.date/ruby), not
-        # just latchkey.gemspec's stated floor. Re-check quarterly.
+        # just add_auth.gemspec's stated floor. Re-check quarterly.
         ruby: ["3.3", "3.4", "4.0"]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -32,7 +32,7 @@ jobs:
             export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
             bundle install
             bundle exec rspec
-            LATCHKEY_EJECT_UI=1 bundle exec rspec spec/system
+            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
           done
       - name: Lint
         run: bundle exec standardrb
@@ -44,11 +44,11 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_DB: latchkey_test
+          POSTGRES_DB: add_auth_test
           POSTGRES_PASSWORD: test-only
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U postgres -d latchkey_test"
+          --health-cmd "pg_isready -U postgres -d add_auth_test"
           --health-interval 10s --health-timeout 5s --health-retries 5
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -63,10 +63,10 @@ jobs:
           for rails in 8_0 8_1; do
             export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
             bundle install
-            bundle exec rspec spec/latchkey/rails spec/requests
+            bundle exec rspec spec/add_auth/rails spec/requests
           done
         env:
-          LATCHKEY_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/latchkey_test
+          ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
 
   audit:
     name: Dependency audit

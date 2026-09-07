@@ -5,7 +5,7 @@ require "rails_helper"
 
 RSpec.describe "Authentication audit regression probes", type: :request, database: true do
   let!(:user) { User.create!(email_address: "audit@example.test", password: "correct-password") }
-  let(:runtime) { Latchkey::Rails::Runtime }
+  let(:runtime) { AddAuth::Rails::Runtime }
 
   def csrf_form(path)
     get path
@@ -13,9 +13,9 @@ RSpec.describe "Authentication audit regression probes", type: :request, databas
   end
 
   it "A01 applies configured challenge policy to the original Rails endpoint" do
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     old_challenge, old_actions = config.challenge, config.challenge_on
-    config.challenge = Latchkey::Core::Challenge::Test.new(mode: :rejected)
+    config.challenge = AddAuth::Core::Challenge::Test.new(mode: :rejected)
     config.challenge_on = [:sign_in]
     previous = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
@@ -39,24 +39,24 @@ RSpec.describe "Authentication audit regression probes", type: :request, databas
   it "A03 bounds a grant by proof freshness rather than minting a new full window" do
     now = Time.now
     clock = double(now: now)
-    proof = Latchkey::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :password, verified_at: now - 599, session_digest: "generation-1", credential_version: user.password_digest)
-    result = Latchkey::Core::StepUp.new(clock: clock, purposes: {manage_profile: {methods: [:password]}})
+    proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :password, verified_at: now - 599, session_digest: "generation-1", credential_version: user.password_digest)
+    result = AddAuth::Core::StepUp.new(clock: clock, purposes: {manage_profile: {methods: [:password]}})
       .authorize(user: user, session_id: 42, purpose: :manage_profile, evidence: proof)
     expect(result.credential.expires_at).to be <= now + 1
   end
 
   it "A04 rejects strong evidence without a credential identity" do
     now = Time.now
-    proof = Latchkey::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :passkey, verified_at: now,
+    proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :passkey, verified_at: now,
       user_verification: true, credential_id: nil)
-    result = Latchkey::Core::StepUp.new(purposes: {manage_passkeys: {methods: [:passkey], require_passkey: true}})
+    result = AddAuth::Core::StepUp.new(purposes: {manage_passkeys: {methods: [:passkey], require_passkey: true}})
       .authorize(user: user, session_id: 42, purpose: :manage_passkeys, evidence: proof)
     expect(result).to be_failure
   end
 
   def authorized_grant(session, purpose: :manage_profile, clock: Time)
-    proof = Latchkey::Core::StepUp::Evidence.new(user_id: user.id, session_id: session.id, method: :password, verified_at: clock.now, session_digest: session.token_digest, credential_version: user.password_digest)
-    result = Latchkey::Core::StepUp.new(clock: clock, purposes: {purpose => {methods: [:password]}})
+    proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: session.id, method: :password, verified_at: clock.now, session_digest: session.token_digest, credential_version: user.password_digest)
+    result = AddAuth::Core::StepUp.new(clock: clock, purposes: {purpose => {methods: [:password]}})
       .authorize(user: user, session_id: session.id, purpose: purpose, evidence: proof)
     expect(result).to be_success
     result.credential
@@ -65,18 +65,18 @@ RSpec.describe "Authentication audit regression probes", type: :request, databas
   it "A05 rejects step-up when the current account became ineligible" do
     initial = runtime.sessions.start(user: user, method: :password)
     grant = authorized_grant(initial.session)
-    original = Latchkey.configuration.eligible
-    Latchkey.configuration.eligible = ->(_) { false }
+    original = AddAuth.configuration.eligible
+    AddAuth.configuration.eligible = ->(_) { false }
     expect(runtime.sessions.rotate_for_step_up(user: user, session: initial.session, grant: grant)).to be_nil
   ensure
-    Latchkey.configuration.eligible = original
+    AddAuth.configuration.eligible = original
   end
 
   it "A06 rechecks time after waiting for the account transaction" do
     now = Time.now
     clock = double(now: now)
-    store = Latchkey::Rails::Stores::Sessions.new(user_model: User, session_model: Session)
-    service = Latchkey::Core::Sessions.new(store: store, digest: Latchkey.configuration.session_token_digest,
+    store = AddAuth::Rails::Stores::Sessions.new(user_model: User, session_model: Session)
+    service = AddAuth::Core::Sessions.new(store: store, digest: AddAuth.configuration.session_token_digest,
       eligible: ->(_) { true }, clock: clock)
     initial = service.start(user: user, method: :password)
     grant = authorized_grant(initial.session, clock: clock)
@@ -103,12 +103,12 @@ RSpec.describe "Authentication audit regression probes", type: :request, databas
   end
 
   it "A09 fails closed after email strategy is disabled without requiring route removal" do
-    old_enabled = Latchkey.configuration.email_link.enabled
-    Latchkey.configuration.email_link.enabled = false
+    old_enabled = AddAuth.configuration.email_link.enabled
+    AddAuth.configuration.email_link.enabled = false
     post "/sign-in/email", params: {email_address: user.email_address}
     expect(ActiveJob::Base.queue_adapter.enqueued_jobs).to be_empty
   ensure
-    Latchkey.configuration.email_link.enabled = old_enabled
+    AddAuth.configuration.email_link.enabled = old_enabled
   end
 
   it "A10 gives a Turbo stream validation response on revoke-all" do
@@ -122,7 +122,7 @@ end
 RSpec.describe "All password entry points", type: :request, database: true do
   let!(:user) { User.create!(email_address: "entry@example.test", password: "correct-password") }
   around do |example|
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     old = [config.challenge, config.challenge_on, config.challenge_when_unavailable, ActionController::Base.allow_forgery_protection]
     ActionController::Base.allow_forgery_protection = true
     example.run
@@ -137,15 +137,15 @@ RSpec.describe "All password entry points", type: :request, database: true do
 
   %w[/session /sign-in/password].each do |path|
     it "enforces CSRF and closed challenge policy at #{path}" do
-      config = Latchkey.configuration
+      config = AddAuth.configuration
       config.challenge_on = [:sign_in]
-      config.challenge = Latchkey::Core::Challenge::Test.new(mode: :success)
+      config.challenge = AddAuth::Core::Challenge::Test.new(mode: :success)
       post path, params: {email_address: user.email_address, password: "correct-password"}
       expect(response.status).to eq(422)
       expect(Session.count).to eq(0)
       csrf = token
       %i[rejected unavailable].each do |state|
-        config.challenge = Latchkey::Core::Challenge::Test.new(mode: state)
+        config.challenge = AddAuth::Core::Challenge::Test.new(mode: state)
         post path, params: {email_address: user.email_address, password: "correct-password", authenticity_token: csrf}
         expect(response.status).to eq((state == :rejected) ? 422 : 503)
         expect(Session.count).to eq(0)
@@ -181,11 +181,11 @@ RSpec.describe "All password entry points", type: :request, database: true do
   end
 
   it "returns stream errors and emits bypass only for the configured open outage policy" do
-    config = Latchkey.configuration
-    config.challenge = Latchkey::Core::Challenge::Test.new(mode: :unavailable)
+    config = AddAuth.configuration
+    config.challenge = AddAuth::Core::Challenge::Test.new(mode: :unavailable)
     config.challenge_on = [:sign_in]
     events = []
-    subscriber = ActiveSupport::Notifications.subscribe("challenge_bypass.latchkey") { |*args| events << args.last }
+    subscriber = ActiveSupport::Notifications.subscribe("challenge_bypass.add_auth") { |*args| events << args.last }
     csrf = token
     post "/session", params: {email_address: user.email_address, password: "correct-password", authenticity_token: csrf},
       headers: {"Accept" => "text/vnd.turbo-stream.html"}
@@ -201,8 +201,8 @@ RSpec.describe "All password entry points", type: :request, database: true do
   end
 
   it "redacts supported captcha aliases from real request logs" do
-    config = Latchkey.configuration
-    config.challenge = Latchkey::Core::Challenge::Test.new(mode: :rejected)
+    config = AddAuth.configuration
+    config.challenge = AddAuth::Core::Challenge::Test.new(mode: :rejected)
     config.challenge_on = [:sign_in]
     io = StringIO.new
     previous = ActionController::Base.logger

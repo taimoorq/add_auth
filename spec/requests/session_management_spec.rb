@@ -14,8 +14,8 @@ RSpec.describe "Session management", type: :request, database: true do
   it "lists only the current account's active sessions without bearer material" do
     current = sign_in
     other = User.create!(email_address: "other@example.test", password: "other-password")
-    foreign = Latchkey::Rails::Runtime.sessions.start(user: other, method: :password, user_agent: "Foreign/1")
-    own = Latchkey::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Second/2")
+    foreign = AddAuth::Rails::Runtime.sessions.start(user: other, method: :password, user_agent: "Foreign/1")
+    own = AddAuth::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Second/2")
 
     get "/sessions"
     expect(response).to have_http_status(:ok)
@@ -29,12 +29,12 @@ RSpec.describe "Session management", type: :request, database: true do
 
     get "/sessions", headers: {"Accept" => "text/vnd.turbo-stream.html"}
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include('target="latchkey-session-content"', "Second/2")
+    expect(response.body).to include('target="add_auth-session-content"', "Second/2")
   end
 
   it "revokes another session and rejects its next request" do
     current = sign_in
-    other = Latchkey::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Other/2")
+    other = AddAuth::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Other/2")
     delete "/sessions/#{other.session.id}"
     expect(response).to redirect_to("/sessions")
     expect(response).to have_http_status(:see_other)
@@ -49,7 +49,7 @@ RSpec.describe "Session management", type: :request, database: true do
   it "signs out the current browser and does not allow cross-account revocation" do
     current = sign_in
     foreign_user = User.create!(email_address: "other@example.test", password: "other-password")
-    foreign = Latchkey::Rails::Runtime.sessions.start(user: foreign_user, method: :password)
+    foreign = AddAuth::Rails::Runtime.sessions.start(user: foreign_user, method: :password)
 
     delete "/sessions/#{foreign.session.id}"
     expect(response).to have_http_status(:not_found)
@@ -65,7 +65,7 @@ RSpec.describe "Session management", type: :request, database: true do
 
   it "requires a fresh password proof before signing out every session" do
     current = sign_in
-    other = Latchkey::Rails::Runtime.sessions.start(user: user, method: :email_link)
+    other = AddAuth::Rails::Runtime.sessions.start(user: user, method: :email_link)
 
     get "/sessions/revoke-all"
     expect(response).to have_http_status(:ok)

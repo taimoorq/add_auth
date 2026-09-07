@@ -40,14 +40,14 @@ RSpec.describe "Rails generator host", type: :request, database: true do
   end
 
   it "derives purpose-separated default digests from the real Rails key generator" do
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     expect(config.session_token_digest.digest("token")).not_to eq(config.sign_in_token_digest.digest("token"))
-    expect(Latchkey::Rails::Engine).not_to be_isolated
+    expect(AddAuth::Rails::Engine).not_to be_isolated
   end
   it "requests a host reset email, follows the link, and invalidates every old session and email proof" do
-    initial = Latchkey::Rails::Runtime.sessions.start(user: user, method: :password)
-    Latchkey::Rails::Runtime.email.issue(identifier: user.email_address)
-    old_email_token = Latchkey::Rails::Runtime.email.delivery_token(digest: LatchkeySignInToken.last.digest)
+    initial = AddAuth::Rails::Runtime.sessions.start(user: user, method: :password)
+    AddAuth::Rails::Runtime.email.issue(identifier: user.email_address)
+    old_email_token = AddAuth::Rails::Runtime.email.delivery_token(digest: AddAuthSignInToken.last.digest)
     previous = ActiveJob::Base.queue_adapter
     ActiveJob::Base.queue_adapter = :inline
     post "/passwords", params: {email_address: user.email_address}
@@ -60,10 +60,10 @@ RSpec.describe "Rails generator host", type: :request, database: true do
     token = link.path.split("/")[-2]
     put "/passwords/#{token}", params: {password: "replacement-password", password_confirmation: "replacement-password"}
     expect(response).to redirect_to("/session/new")
-    expect(Latchkey::Rails::Runtime.sessions.resume(signed_value: initial.bearer)).to be_nil
+    expect(AddAuth::Rails::Runtime.sessions.resume(signed_value: initial.bearer)).to be_nil
     expect(User.find_by_password_reset_token(token)).to be_nil
-    expect(Latchkey::Rails::Runtime.email.preview(token: old_email_token)).to be_nil
-    expect(LatchkeySignInToken.last.delivery_payload).to be_nil
+    expect(AddAuth::Rails::Runtime.email.preview(token: old_email_token)).to be_nil
+    expect(AddAuthSignInToken.last.delivery_payload).to be_nil
   ensure
     ActiveJob::Base.queue_adapter = previous if previous
   end

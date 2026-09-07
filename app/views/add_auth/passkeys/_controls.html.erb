@@ -1,0 +1,17 @@
+<div data-controller="add-auth-passkey"
+  data-add-auth-passkey-options-url-value="<%= options_url %>"
+  data-add-auth-passkey-finish-url-value="<%= finish_url %>"
+  data-add-auth-passkey-mode-value="<%= mode %>"
+  data-add-auth-passkey-purpose-value="<%= local_assigns[:purpose] %>"
+  data-add-auth-passkey-conditional-value="<%= local_assigns.fetch(:conditional, false) && !AddAuth.configuration.challenge_on.include?(action) %>"
+  data-add-auth-passkey-csrf-value="<%= form_authenticity_token %>"
+  data-action="turbo:before-cache@document->add-auth-passkey#beforeCache submit@document->add-auth-passkey#otherSubmission">
+  <p data-add-auth-passkey-target="unavailable">Passkeys need JavaScript and a compatible browser or device. Use another method allowed by your account policy if available.</p>
+  <%= form_with url: options_url, data: add_auth_challenge_form_data(action).merge(add_auth_passkey_target: "form", action: [add_auth_challenge_form_data(action)[:action], "submit->add-auth-passkey#submit"].compact.join(" ")) do |form| %>
+    <%= add_auth_challenge_tag action, id: "passkey_#{action}" %>
+    <div hidden data-add-auth-passkey-target="controls">
+      <%= form.submit label, class: add_auth_class(:button), data: {add_auth_challenge_target: "submit", add_auth_passkey_target: "button"} %>
+    </div>
+  <% end %>
+  <p role="status" aria-live="polite" tabindex="-1" hidden data-add-auth-passkey-target="status"></p>
+</div>

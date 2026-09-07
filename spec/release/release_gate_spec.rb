@@ -3,7 +3,7 @@
 require "spec_helper"
 require_relative "../../.github/scripts/release_gate"
 
-RSpec.describe LatchkeyReleaseGate do
+RSpec.describe AddAuthReleaseGate do
   let(:run) { {"head_sha" => "commit", "head_branch" => "master", "event" => "push", "status" => "completed", "conclusion" => "success", "run_number" => 10, "check_suite_id" => 1} }
   let(:checks) do
     described_class::REQUIRED_CHECKS.map.with_index do |name, index|

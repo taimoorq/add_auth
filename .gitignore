@@ -15,5 +15,5 @@ Gemfile.lock
 
 /gemfiles/*.lock
 /spec/dummy/db/schema.rb
-/spec/dummy/app/models/latchkey_sign_in_token.rb
-/spec/dummy/db/migrate/*_create_latchkey_sign_in_tokens.rb
+/spec/dummy/app/models/add_auth_sign_in_token.rb
+/spec/dummy/db/migrate/*_create_add_auth_sign_in_tokens.rb

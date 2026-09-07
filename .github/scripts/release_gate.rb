@@ -3,7 +3,7 @@
 require "json"
 require "open3"
 
-module LatchkeyReleaseGate
+module AddAuthReleaseGate
   REQUIRED_CHECKS = ["Ruby 3.3", "Ruby 3.4", "Ruby 4.0", "PostgreSQL", "Dependency audit"].freeze
   module_function
 
@@ -30,8 +30,8 @@ module LatchkeyReleaseGate
     sha = command("git", "rev-parse", "HEAD")
     branch = JSON.parse(command("gh", "api", "repos/#{repo}")).fetch("default_branch")
     command("git", "merge-base", "--is-ancestor", sha, "origin/#{branch}")
-    require_relative "../../lib/latchkey/version"
-    raise "Release tag does not match the gem version" unless ENV.fetch("GITHUB_REF_NAME") == "v#{Latchkey::VERSION}"
+    require_relative "../../lib/add_auth/version"
+    raise "Release tag does not match the gem version" unless ENV.fetch("GITHUB_REF_NAME") == "v#{AddAuth::VERSION}"
     runs = JSON.parse(command("gh", "api", "--paginate", "--slurp", "repos/#{repo}/actions/workflows/ci.yml/runs?head_sha=#{sha}&event=push&per_page=100"))
       .flat_map { |page| page.fetch("workflow_runs") }
     checks = JSON.parse(command("gh", "api", "--paginate", "--slurp", "repos/#{repo}/commits/#{sha}/check-runs?filter=latest&per_page=100"))
@@ -41,4 +41,4 @@ module LatchkeyReleaseGate
   end
 end
 
-LatchkeyReleaseGate.run! if $PROGRAM_NAME == __FILE__
+AddAuthReleaseGate.run! if $PROGRAM_NAME == __FILE__

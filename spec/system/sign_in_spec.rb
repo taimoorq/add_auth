@@ -15,15 +15,15 @@ RSpec.describe "Sign-in browser journeys", database: true do
   let!(:user) { User.create!(email_address: "person@example.test", password: "correct-password") }
 
   def capture(browser, name)
-    return unless ENV["LATCHKEY_SCREENSHOTS"]
-    FileUtils.mkdir_p(ENV.fetch("LATCHKEY_SCREENSHOTS"))
-    browser.save_screenshot(File.join(ENV.fetch("LATCHKEY_SCREENSHOTS"), "#{name}.png"))
+    return unless ENV["ADD_AUTH_SCREENSHOTS"]
+    FileUtils.mkdir_p(ENV.fetch("ADD_AUTH_SCREENSHOTS"))
+    browser.save_screenshot(File.join(ENV.fetch("ADD_AUTH_SCREENSHOTS"), "#{name}.png"))
   end
 
   it "supports Turbo failure/success, responsive layout, focus and frame breakout" do
-    browser = Capybara::Session.new(:latchkey_chrome, Rails.application)
+    browser = Capybara::Session.new(:add_auth_chrome, Rails.application)
     browser.visit "/sign-in"
-    expect(browser).to have_css(".latchkey-panel")
+    expect(browser).to have_css(".add_auth-panel")
     browser.document.synchronize do
       raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == "object"
     end
@@ -59,8 +59,8 @@ RSpec.describe "Sign-in browser journeys", database: true do
   end
 
   it "requests and confirms a delivered link on another browser with JavaScript disabled" do
-    requester = Capybara::Session.new(:latchkey_no_js, Rails.application)
-    receiver = Capybara::Session.new(:latchkey_no_js, Rails.application)
+    requester = Capybara::Session.new(:add_auth_no_js, Rails.application)
+    receiver = Capybara::Session.new(:add_auth_no_js, Rails.application)
     previous_adapter = ActiveJob::Base.queue_adapter
     ActiveJob::Base.queue_adapter = :inline
     requester.visit "/sign-in"
@@ -88,10 +88,10 @@ RSpec.describe "Sign-in browser journeys", database: true do
     receiver&.quit
   end
 
-  %i[latchkey_chrome latchkey_no_js].each do |driver|
+  %i[add_auth_chrome add_auth_no_js].each do |driver|
     it "keeps a delivered bound link usable only in its requesting browser with #{driver}" do
-      original_binding = Latchkey.configuration.email_link.same_browser
-      Latchkey.configuration.email_link.same_browser = true
+      original_binding = AddAuth.configuration.email_link.same_browser
+      AddAuth.configuration.email_link.same_browser = true
       previous_adapter = ActiveJob::Base.queue_adapter
       ActiveJob::Base.queue_adapter = :inline
       requester = Capybara::Session.new(driver, Rails.application)
@@ -104,7 +104,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
       receiver.visit url.request_uri
       expect(receiver).to have_text("Open this link in the requesting browser")
       expect(receiver).not_to have_button("Sign in to this account")
-      expect(LatchkeySignInToken.last.consumed_at).to be_nil
+      expect(AddAuthSignInToken.last.consumed_at).to be_nil
       requester.visit url.request_uri
       requester.click_button "Sign in to this account"
       expect(requester).to have_text("Signed in")
@@ -112,7 +112,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
       expect(receiver).to have_css("h1", text: "Sign in")
       expect(Session.count).to eq(1)
     ensure
-      Latchkey.configuration.email_link.same_browser = original_binding
+      AddAuth.configuration.email_link.same_browser = original_binding
       ActiveJob::Base.queue_adapter = previous_adapter if previous_adapter
       requester&.quit
       receiver&.quit
@@ -120,14 +120,14 @@ RSpec.describe "Sign-in browser journeys", database: true do
   end
 
   it "reviews and revokes a session with JavaScript disabled" do
-    browser = Capybara::Session.new(:latchkey_no_js, Rails.application)
+    browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     browser.visit "/sign-in"
     browser.fill_in "Email address", with: user.email_address
     browser.fill_in "Password", with: "correct-password"
     browser.click_button "Sign in with password"
     expect(browser).to have_text("Signed in")
 
-    other = Latchkey::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Other browser/2")
+    other = AddAuth::Rails::Runtime.sessions.start(user: user, method: :email_link, user_agent: "Other browser/2")
     browser.visit "/sessions"
     expect(browser).to have_text("Your sessions")
     expect(browser).to have_text("Other browser/2")
@@ -148,7 +148,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
     browser&.quit
   end
 
-  %i[latchkey_chrome latchkey_no_js].each do |driver|
+  %i[add_auth_chrome add_auth_no_js].each do |driver|
     it "rejects the previous browser cookie after a replacement login and logout with #{driver}" do
       browser = Capybara::Session.new(driver, Rails.application)
       previous_cookie = nil

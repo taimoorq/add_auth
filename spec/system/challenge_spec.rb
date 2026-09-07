@@ -6,7 +6,7 @@ require_relative "../support/browser"
 RSpec.describe "Challenge browser lifecycle", database: true do
   let!(:user) { User.create!(email_address: "challenge@example.test", password: "correct-password") }
   around do |example|
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     previous = [config.challenge, config.challenge_on, ActionController::Base.allow_forgery_protection]
     config.challenge_on = %i[sign_in email_link]
     ActionController::Base.allow_forgery_protection = true
@@ -21,7 +21,7 @@ RSpec.describe "Challenge browser lifecycle", database: true do
   end
 
   def browser_for(mode, source)
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     used = []
     transport = lambda do |**args|
       token = args.fetch(:params).fetch("response")
@@ -31,12 +31,12 @@ RSpec.describe "Challenge browser lifecycle", database: true do
       [200, JSON.generate(success: valid, action: action, hostname: "example.test", score: 0.9)]
     end
     config.challenge = if mode == :turnstile
-      Latchkey::Core::Challenge::Turnstile.new(site_key: "site", secret_key: "test-only", transport: transport)
+      AddAuth::Core::Challenge::Turnstile.new(site_key: "site", secret_key: "test-only", transport: transport)
     else
-      Latchkey::Core::Challenge::Recaptcha.new(site_key: "site", secret_key: "test-only", version: mode, transport: transport)
+      AddAuth::Core::Challenge::Recaptcha.new(site_key: "site", secret_key: "test-only", version: mode, transport: transport)
     end
     allow(config.challenge).to receive(:script_url).and_return(nil)
-    @browser = Capybara::Session.new(:latchkey_chrome, Rails.application)
+    @browser = Capybara::Session.new(:add_auth_chrome, Rails.application)
     @browser.driver.browser.execute_cdp("Page.addScriptToEvaluateOnNewDocument", source: source)
     @browser.visit "/sign-in"
     @browser
@@ -125,8 +125,8 @@ RSpec.describe "Challenge browser lifecycle", database: true do
   end
 
   it "gives an honest server rejection with JavaScript disabled" do
-    Latchkey.configuration.challenge = Latchkey::Core::Challenge::Test.new(mode: :rejected)
-    @browser = Capybara::Session.new(:latchkey_no_js, Rails.application)
+    AddAuth.configuration.challenge = AddAuth::Core::Challenge::Test.new(mode: :rejected)
+    @browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     @browser.visit "/session/new"
     @browser.fill_in "Email address", with: user.email_address
     @browser.fill_in "Password", with: "correct-password"

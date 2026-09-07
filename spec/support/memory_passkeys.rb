@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module PasskeyStoreSupport
-  User = Struct.new(:id, :email_address, :password_digest, :webauthn_id, :latchkey_strict, :latchkey_policy_version)
+  User = Struct.new(:id, :email_address, :password_digest, :webauthn_id, :add_auth_strict, :add_auth_policy_version)
   Session = Struct.new(:id, :user_id, :token_digest, :authenticated_with, :authenticated_at, :expires_at, :last_seen_at,
     :revoked_at, :created_at, :elevated_at, :elevated_with, :elevation_purpose, :elevation_credential_id, :elevation_uv,
     :elevation_version, :elevation_expires_at, :authentication_policy_version, :authentication_credential_id, :authentication_uv)
@@ -14,7 +14,7 @@ module PasskeyStoreSupport
   # inherit a rotated bearer just because the fake shares object references.
   class Store
     def initialize
-      @tables = {User => [User.new(id: 1, email_address: "fake@example.test", password_digest: "hashed", latchkey_strict: false, latchkey_policy_version: 0)], Session => [], Credential => [], Ceremony => []}
+      @tables = {User => [User.new(id: 1, email_address: "fake@example.test", password_digest: "hashed", add_auth_strict: false, add_auth_policy_version: 0)], Session => [], Credential => [], Ceremony => []}
     end
 
     def user = copy(@tables[User].first)

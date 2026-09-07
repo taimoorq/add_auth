@@ -6,6 +6,15 @@ First integrated development release for evaluation in Rails 8.0 and 8.1 hosts
 on Ruby 3.3, 3.4 and 4.0. Production acceptance and API stabilization remain open;
 see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
 
+### AddAuth name
+
+- Rename the development gem from Latchkey to `add_auth`, with Ruby namespace
+  `AddAuth` and `add_auth:*` generators/tasks. Standard Rails/Thor naming handles engine loading, models, controllers and
+  generator discovery without an inflection override.
+- Fresh installations use AddAuth tables, configuration, cookies, cryptographic
+  contexts, jobs and ejection manifests. This prerelease does not migrate an
+  existing Latchkey installation or provide a legacy namespace alias.
+
 ### Security and lifecycle hardening
 
 - Prevent fixed-window rate-limit bursts and cap anonymous passkey ceremonies;
@@ -21,7 +30,7 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
 - Recheck current account, initiating session and bearer generation under lock
   for revoke-one. Its Core API now requires the initiating `session:`.
 - Treat mail callback/interceptor suppression as cancellation: revoke the link,
-  emit `delivery_cancelled.latchkey` with only the issuance ID, and never mark it
+  emit `delivery_cancelled.add_auth` with only the issuance ID, and never mark it
   delivered or resend it. Actual delivery errors retain the same-intent retry.
 - Apply shared abuse/CSRF/challenge policy to legacy and new password entry
   points; throttle and lock password reauthentication for revoke-all.
@@ -67,9 +76,9 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
 - Add server-backed Turnstile and reCAPTCHA v2/v3 challenge adapters with
   hostname/action/score checks, bounded HTTPS verification, explicit closed/open
   outage policy, provider markup and a Turbo-safe reCAPTCHA v3 submit bridge.
-- Add `latchkey:challenge turnstile|recaptcha` scaffolding with environment-keyed
+- Add `add_auth:challenge turnstile|recaptcha` scaffolding with environment-keyed
   secrets and an idempotent fixed challenge asset route.
-- Extend `latchkey:doctor` to verify session elevation columns, challenge policy
+- Extend `add_auth:doctor` to verify session elevation columns, challenge policy
   and the reCAPTCHA v3 asset route alongside origin/mail/cache checks.
 - Add view ejection, fresh-host installation tests, CSRF-enabled Chrome journeys,
   real cookie/worker failure tests and permanent default-color contrast checks.
@@ -77,15 +86,15 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
 - Add the Rails-backed email-token persistence slice: atomic replacement and
   consumption/session persistence, encrypted expiring delivery intent, replay,
   address/eligibility checks, rollback and query-cache protection.
-- Add `latchkey:email_tokens` with additive schema and custom-model preservation;
+- Add `add_auth:email_tokens` with additive schema and custom-model preservation;
   add inert configuration install and per-feature session/email generators.
 - Require explicit strong HMAC key material in Core; derive Rails defaults through
   the engine and make challenge verification outcomes immutable.
 - Add shared fake/SQLite contracts, host request specs, fresh Rails generator tests
   and a Ruby/Rails CI matrix. Replace generated Minitest stubs with RSpec coverage.
 
-- Repository skeleton: two-layer architecture (`Latchkey::Core` /
-  `Latchkey::Rails::Engine`), closed `Result` type, challenge adapter
+- Repository skeleton: two-layer architecture (`AddAuth::Core` /
+  `AddAuth::Rails::Engine`), closed `Result` type, challenge adapter
   interface (`Base`/`Null`/`Test`), remaining generator stubs (`views`,
-  `controllers`, `javascript`), and the `latchkey:doctor` rake task stub.
+  `controllers`, `javascript`), and the `add_auth:doctor` rake task stub.
   See the canonical design in the companion workspace.

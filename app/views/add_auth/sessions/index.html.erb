@@ -1,0 +1,12 @@
+<% content_for :title, "Sessions" %>
+<% content_for :head do %>
+  <% turbo_exempts_page_from_cache %>
+  <% turbo_page_requires_reload if request.headers["Turbo-Frame"].present? %>
+  <%= stylesheet_link_tag add_auth_stylesheet, skip_pipeline: true if add_auth_stylesheet %>
+<% end %>
+<main class="<%= add_auth_class(:panel) %>" aria-labelledby="add_auth-title">
+  <h1 id="add_auth-title">Your sessions</h1>
+  <p class="<%= add_auth_class(:muted) %>">Review browsers signed in to your account and revoke any you no longer use.</p>
+  <p><%= link_to "Sign out everywhere", "/sessions/revoke-all", class: add_auth_class(:link) %></p>
+  <div id="add_auth-session-content"><%= render "add_auth/sessions/list" %></div>
+</main>

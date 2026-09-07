@@ -1,0 +1,28 @@
+:where(.add_auth-body) {
+  --add_auth-canvas: #f4f5f3;
+  --add_auth-surface: #ffffff;
+  --add_auth-text: #202923;
+  --add_auth-muted: #505b53;
+  --add_auth-accent: #225e42;
+  --add_auth-border: #737d75;
+  --add_auth-focus: #1559a0;
+  margin: 0; padding: 2rem 1rem; background: var(--add_auth-canvas);
+  color: var(--add_auth-text); font: 1rem/1.6 system-ui, sans-serif;
+}
+:where(.add_auth-panel) { box-sizing: border-box; max-width: 28rem; margin: 4vh auto; padding: clamp(1.25rem, 5vw, 2.5rem); background: var(--add_auth-surface); border-top: 4px solid var(--add_auth-accent); }
+:where(.add_auth-panel h1) { font-size: 1.8rem; line-height: 1.2; margin-top: 0; }
+:where(.add_auth-field) { margin: 1.25rem 0; }
+:where(.add_auth-field label) { display: block; margin-bottom: .35rem; font-weight: 600; }
+:where(.add_auth-input) { box-sizing: border-box; width: 100%; min-height: 2.75rem; border: 1px solid var(--add_auth-border); border-radius: .25rem; padding: .6rem .75rem; background: var(--add_auth-surface); color: var(--add_auth-text); font: inherit; }
+:where(.add_auth-button) { box-sizing: border-box; white-space: normal; width: 100%; min-height: 2.75rem; border: 2px solid transparent; border-radius: .25rem; padding: .65rem .8rem; font: inherit; font-weight: 600; color: #ffffff; background: var(--add_auth-accent); cursor: pointer; }
+:where(.add_auth-button:hover) { text-decoration: underline; }
+:where(.add_auth-input:focus-visible, .add_auth-button:focus-visible, .add_auth-link:focus-visible) { outline: 3px solid var(--add_auth-focus); outline-offset: 3px; }
+:where(.add_auth-muted) { color: var(--add_auth-muted); }
+:where(.add_auth-link) { color: var(--add_auth-accent); text-underline-offset: .2em; }
+:where(.add_auth-notice) { padding: .75rem; border-left: 3px solid currentColor; }
+:where(.add_auth-divider) { border: 0; border-top: 1px solid var(--add_auth-border); margin: 2rem 0; }
+:where(.add_auth-session-list) { list-style: none; margin: 1.5rem 0 0; padding: 0; }
+:where(.add_auth-session) { display: flex; align-items: start; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-top: 1px solid var(--add_auth-border); }
+:where(.add_auth-session p) { margin: .25rem 0 0; overflow-wrap: anywhere; }
+:where(.add_auth-session .add_auth-button) { width: auto; min-width: 7rem; }
+@media (forced-colors: active) { .add_auth-button { border-color: ButtonText; } }

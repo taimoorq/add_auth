@@ -16,9 +16,9 @@ require "action_view/railtie"
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
-require "latchkey/rails/engine"
-require "latchkey/rails/delivery_cipher"
-require "latchkey/rails/stores/email_tokens"
+require "add_auth/rails/engine"
+require "add_auth/rails/delivery_cipher"
+require "add_auth/rails/stores/email_tokens"
 
 module Dummy
   class Application < Rails::Application

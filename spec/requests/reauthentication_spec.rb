@@ -43,7 +43,7 @@ RSpec.describe "Public reauthentication", type: :request, database: true do
     post "/reauthenticate/password", params: {purpose: :strong, password: "correct-password"},
       headers: {"Accept" => "text/vnd.turbo-stream.html"}
     expect(response).to have_http_status(422)
-    expect(response.body).to include('target="latchkey-content"')
+    expect(response.body).to include('target="add_auth-content"')
     expect(Session.last.elevated_at).to be_nil
   end
 
@@ -87,7 +87,7 @@ RSpec.describe "Public reauthentication", type: :request, database: true do
     expect(response).to have_http_status(422)
     get url.request_uri
     expect(response.body).to include("Confirm this verification")
-    expect(LatchkeySignInToken.last.consumed_at).to be_nil
+    expect(AddAuthSignInToken.last.consumed_at).to be_nil
     post "/reauthenticate/link", params: {token: token, purpose: :strong}
     expect(response).to redirect_to("/sensitive")
     expect(Session.count).to eq(1)
@@ -99,10 +99,10 @@ RSpec.describe "Public reauthentication", type: :request, database: true do
   it "returns safely after password rotation if the purpose is removed before the response" do
     sign_in
     old_cookie = cookies[:session_id]
-    allow(Latchkey::Rails::Runtime).to receive(:elevate_password).and_wrap_original do |original, **args|
+    allow(AddAuth::Rails::Runtime).to receive(:elevate_password).and_wrap_original do |original, **args|
       result = original.call(**args)
       expect(result).to be_success
-      Latchkey.configuration.step_up.purposes.delete(:manage_profile)
+      AddAuth.configuration.step_up.purposes.delete(:manage_profile)
       result
     end
     post "/reauthenticate/password", params: {purpose: :manage_profile, password: "correct-password"}
@@ -118,12 +118,12 @@ RSpec.describe "Public reauthentication", type: :request, database: true do
     perform_enqueued_jobs { post "/reauthenticate/email", params: {purpose: :manage_profile} }
     url = URI.parse(ActionMailer::Base.deliveries.last.body.decoded[/http[^\s]+/])
     token = URI.decode_www_form(url.query).to_h.fetch("token")
-    allow(Latchkey::Rails::Runtime).to receive(:email).and_wrap_original do |original, **args|
+    allow(AddAuth::Rails::Runtime).to receive(:email).and_wrap_original do |original, **args|
       service = original.call(**args)
       allow(service).to receive(:reauthenticate).and_wrap_original do |consume, **proof|
         result = consume.call(**proof)
         expect(result).to be_success
-        Latchkey.configuration.step_up.purposes.delete(:manage_profile)
+        AddAuth.configuration.step_up.purposes.delete(:manage_profile)
         result
       end
       service
@@ -131,7 +131,7 @@ RSpec.describe "Public reauthentication", type: :request, database: true do
     post "/reauthenticate/link", params: {token: token}
     expect(response).to have_http_status(303)
     expect(response).to redirect_to("/")
-    expect(LatchkeySignInToken.last.consumed_at).to be_present
+    expect(AddAuthSignInToken.last.consumed_at).to be_present
     expect(Session.count).to eq(1)
   end
 end

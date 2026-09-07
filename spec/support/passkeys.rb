@@ -1,32 +1,32 @@
 # frozen_string_literal: true
 
 require "webauthn/fake_client"
-require "latchkey/rails/stores/passkeys"
+require "add_auth/rails/stores/passkeys"
 require_relative "reauthentication"
 
 RSpec.shared_context "passkey services" do
   include_context "public reauthentication"
   around do |example|
-    options = Latchkey.configuration.passkeys
+    options = AddAuth.configuration.passkeys
     previous = options.enabled
     options.enabled = true
-    Latchkey.configuration.step_up.purposes[:manage_passkeys] = {methods: [:password, :email_link, :passkey], return_to: "/passkeys"}
-    Latchkey.configuration.step_up.purposes[:manage_policy] = {methods: [:passkey], require_passkey: true, return_to: "/passkeys"}
+    AddAuth.configuration.step_up.purposes[:manage_passkeys] = {methods: [:password, :email_link, :passkey], return_to: "/passkeys"}
+    AddAuth.configuration.step_up.purposes[:manage_policy] = {methods: [:passkey], require_passkey: true, return_to: "/passkeys"}
     example.run
   ensure
     options.enabled = previous
   end
 
   let!(:user) { User.create!(email_address: "passkey@example.test", password: "correct-password") }
-  let(:runtime) { Latchkey::Rails::Runtime }
+  let(:runtime) { AddAuth::Rails::Runtime }
   let(:browser_secret) { runtime.browser_binding.generate }
   let(:initial) { runtime.sessions.start(user: user, method: :password) }
   let(:events) { [] }
-  let(:store) { Latchkey::Rails::Stores::Passkeys.new(user_model: User, session_model: Session, credential_model: LatchkeyCredential, ceremony_model: LatchkeyCeremony, token_model: LatchkeySignInToken) }
+  let(:store) { AddAuth::Rails::Stores::Passkeys.new(user_model: User, session_model: Session, credential_model: AddAuthCredential, ceremony_model: AddAuthCeremony, token_model: AddAuthSignInToken) }
   let(:service) do
-    Latchkey::Core::Strategies::Passkey.new(store: store, sessions: runtime.sessions, policy: runtime.step_up_policy,
-      access_policy: runtime.access_policy, digest: Latchkey.configuration.sign_in_token_digest,
-      eligible: Latchkey.configuration.eligible, rp_id: "example.test", origins: ["https://example.test"], name: "Test",
+    AddAuth::Core::Strategies::Passkey.new(store: store, sessions: runtime.sessions, policy: runtime.step_up_policy,
+      access_policy: runtime.access_policy, digest: AddAuth.configuration.sign_in_token_digest,
+      eligible: AddAuth.configuration.eligible, rp_id: "example.test", origins: ["https://example.test"], name: "Test",
       notify: ->(**event) { events << event }, support_url: "/support", limiter: runtime.method(:limit))
   end
   let(:authenticator) { WebAuthn::FakeAuthenticator.new }

@@ -42,7 +42,7 @@ Rails.application.configure do
 end
 
 Rails.application.configure do
-  config.secret_key_base = "latchkey-test-only-" * 8
+  config.secret_key_base = "add_auth-test-only-" * 8
   config.action_mailer.delivery_method = :test
   config.action_mailer.default_url_options = {host: "example.test"}
   config.active_job.queue_adapter = :test

@@ -1,6 +1,6 @@
 class User < ApplicationRecord
-  has_many :latchkey_sign_in_tokens, dependent: :delete_all
-  include Latchkey::Rails::UserLifecycle
+  has_many :add_auth_sign_in_tokens, dependent: :delete_all
+  include AddAuth::Rails::UserLifecycle
 
   has_secure_password
   has_many :sessions, dependent: :destroy

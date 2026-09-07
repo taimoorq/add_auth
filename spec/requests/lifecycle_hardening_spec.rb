@@ -4,7 +4,7 @@ require "rails_helper"
 
 RSpec.describe "Authentication lifecycle hardening", type: :request, database: true do
   let!(:user) { User.create!(email_address: "lifecycle@example.test", password: "correct-password") }
-  let(:runtime) { Latchkey::Rails::Runtime }
+  let(:runtime) { AddAuth::Rails::Runtime }
 
   around do |example|
     previous = ActionController::Base.allow_forgery_protection
@@ -84,7 +84,7 @@ RSpec.describe "Authentication lifecycle hardening", type: :request, database: t
     post "/sign-in/email", params: {email_address: user.email_address, authenticity_token: csrf}
     url = URI.parse(ActionMailer::Base.deliveries.last.body.decoded[/http[^\s]+/])
     token = URI.decode_www_form(url.query).to_h.fetch("token")
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     enabled = config.email_link.enabled
     config.email_link.enabled = false
     reset = user.password_reset_token
@@ -95,7 +95,7 @@ RSpec.describe "Authentication lifecycle hardening", type: :request, database: t
     post "/sign-in/link", params: {token: token, authenticity_token: csrf}
     expect(response.status).to eq(422)
     expect(Session.count).to eq(0)
-    expect(LatchkeySignInToken.last.revoked_at).to be_present
+    expect(AddAuthSignInToken.last.revoked_at).to be_present
   ensure
     config.email_link.enabled = enabled if config
     ActiveJob::Base.queue_adapter = adapter if adapter
@@ -103,9 +103,9 @@ RSpec.describe "Authentication lifecycle hardening", type: :request, database: t
 
   it "keeps a link revoked when the address changes away and back while email is disabled" do
     runtime.email.issue(identifier: user.email_address)
-    record = LatchkeySignInToken.last
+    record = AddAuthSignInToken.last
     raw = runtime.email.delivery_token(digest: record.digest)
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     enabled = config.email_link.enabled
     config.email_link.enabled = false
     old_address = user.email_address
@@ -123,7 +123,7 @@ RSpec.describe "Authentication lifecycle hardening", type: :request, database: t
     initiating = Session.last
     other = runtime.sessions.start(user: user, method: :password).session
     token = csrf
-    allow_any_instance_of(Latchkey::Core::Sessions).to receive(:revoke_one).and_wrap_original do |original, **args|
+    allow_any_instance_of(AddAuth::Core::Sessions).to receive(:revoke_one).and_wrap_original do |original, **args|
       initiating.update!(revoked_at: Time.current)
       original.call(**args)
     end

@@ -1,0 +1,17 @@
+<ul class="add_auth-session-list">
+  <% @sessions.each do |session| %>
+    <li class="add_auth-session" id="session_<%= session.id %>">
+      <div>
+        <strong><%= session.current ? "This browser" : "Signed-in browser" %></strong>
+        <p class="<%= add_auth_class(:muted) %>">
+          <%= session.authenticated_with ? "Signed in with #{session.authenticated_with.tr("_", " ")}" : "Imported session" %>
+          · <%= session.last_seen_at ? "Last active #{session.last_seen_at.strftime("%Y-%m-%d %H:%M UTC")}" : "Activity unknown" %>
+        </p>
+        <% if session.user_agent.present? %><p class="<%= add_auth_class(:muted) %>"><%= session.user_agent %></p><% end %>
+      </div>
+      <%= button_to(session.current ? "Sign out" : "Revoke", security_session_path(session.id), method: :delete,
+        class: add_auth_class(:button),
+        form: {data: {turbo_frame: "_top"}}) %>
+    </li>
+  <% end %>
+</ul>

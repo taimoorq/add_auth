@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Sign in</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <% turbo_exempts_page_from_cache %>
+    <% turbo_page_requires_reload if request.headers["Turbo-Frame"].present? %>
+    <%= yield :head %>
+    <%= csrf_meta_tags %>
+    <script src="/add_auth/boot.js" type="module" data-turbo-track="reload"></script>
+    <%= stylesheet_link_tag add_auth_stylesheet, skip_pipeline: true if add_auth_stylesheet %>
+  </head>
+  <body class="<%= add_auth_class(:body) %>">
+    <main class="<%= add_auth_class(:panel) %>" aria-labelledby="add_auth-title">
+      <div id="add_auth-content"><%= yield %></div>
+    </main>
+  </body>
+</html>

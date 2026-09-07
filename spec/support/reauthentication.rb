@@ -2,7 +2,7 @@
 
 RSpec.shared_context "public reauthentication" do
   around do |example|
-    options = Latchkey.configuration.step_up
+    options = AddAuth.configuration.step_up
     old = [options.enabled, options.purposes]
     options.enabled = true
     options.purposes = {

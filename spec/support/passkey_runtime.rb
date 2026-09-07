@@ -5,7 +5,7 @@ require_relative "reauthentication"
 RSpec.shared_context "passkey runtime" do
   include_context "public reauthentication"
   around do |example|
-    config = Latchkey.configuration
+    config = AddAuth.configuration
     old = [config.passkeys.dup, config.notifications.enabled, config.trusted_recovery_address, config.support_url]
     config.passkeys.enabled = true
     config.passkeys.rp_id = "localhost"

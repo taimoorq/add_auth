@@ -1,0 +1,32 @@
+<h1 id="add_auth-title">Your passkeys</h1>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+<p>Add a passkey for this browser, another device, or a security key. First verify your account when prompted.</p>
+<%= render "add_auth/passkeys/controls", mode: "create", options_url: "/passkeys/options", finish_url: "/passkeys", label: "Add a passkey", action: :passkey_enrollment %>
+<% @credentials.each do |credential| %>
+  <section id="passkey_<%= credential.id %>">
+    <h2><%= credential.nickname %></h2>
+    <p>Added <%= credential.created_at.strftime("%Y-%m-%d") %><% if credential.last_used_at %> · Last used <%= credential.last_used_at.strftime("%Y-%m-%d") %><% end %></p>
+    <% if credential.backup_eligible %><p>Supports backup. This does not prove you have a separately usable device.</p><% end %>
+    <%= form_with url: "/passkeys/#{credential.id}", method: :patch, data: {turbo_frame: "_top"} do |form| %>
+      <%= form.label :nickname, "Passkey name", for: "nickname_#{credential.id}" %>
+      <%= form.text_field :nickname, id: "nickname_#{credential.id}", value: credential.nickname, maxlength: 60, required: true %>
+      <%= form.submit "Rename" %>
+    <% end %>
+    <details>
+      <summary>Remove this passkey</summary>
+      <p>This removes access to this account. You may also delete the saved passkey from your password manager afterward. Keep another usable sign-in method.</p>
+      <%= button_to "Confirm removal", "/passkeys/#{credential.id}", method: :delete, form: {data: {turbo_frame: "_top"}} %>
+    </details>
+  </section>
+<% end %>
+<h2>Recovery policy</h2>
+<p><%= @strict ? "Strict: passkeys are required. Password reset and email cannot replace a lost passkey." : "Default: enabled methods can sign in. Email replacement is available only through an established, trusted recovery address." %></p>
+<p>Keep a separately usable passkey and test it before relying on strict policy. Two synced entries may share the same failure point.</p>
+<%= form_with url: "/passkeys/policy", data: {turbo_frame: "_top"} do |form| %>
+  <%= form.hidden_field :policy, value: @strict ? "default" : "strict" %>
+  <%= form.check_box :acknowledged, required: true %>
+  <%= form.label :acknowledged, "I understand the recovery limits and have tested another way to access my account." %>
+  <%= form.submit @strict ? "Use default recovery policy" : "Require passkeys for this account" %>
+<% end %>
+<p><%= link_to "Verify to change policy", "/reauthenticate?purpose=manage_policy" %></p>
+<p><%= link_to "I can’t use my passkeys", "/recover" %> · <%= link_to "Your sessions", "/sessions" %></p>

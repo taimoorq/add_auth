@@ -78,12 +78,12 @@ module EmailTokenSupport
       created = nil
       active = true
       result = yield lambda { |**_attributes|
-        raise Latchkey::Error, "session writer is no longer available" unless active && !created
+        raise AddAuth::Error, "session writer is no longer available" unless active && !created
         created = Session.new(user.id)
         sessions << created
         created
       }
-      raise Latchkey::Error, "invalid finalizer" unless created && result.equal?(created)
+      raise AddAuth::Error, "invalid finalizer" unless created && result.equal?(created)
       result
     ensure
       active = false

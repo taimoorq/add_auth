@@ -1,0 +1,27 @@
+<h1 id="add_auth-title">Verify it’s you</h1>
+<p>Confirm your identity to <%= @rule&.label || "continue" %>.</p>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+<% if Array(@methods).include?(:password) %>
+  <%= form_with url: "/reauthenticate/password", data: add_auth_challenge_form_data(:reauthenticate) do |form| %>
+    <%= form.hidden_field :purpose, value: @purpose %>
+    <div class="<%= add_auth_class(:field) %>">
+      <%= form.label :password, "Current password" %>
+      <%= form.password_field :password, required: true, autocomplete: "current-password", class: add_auth_class(:input) %>
+    </div>
+    <%= add_auth_challenge_tag :reauthenticate, id: :password %>
+    <%= form.submit "Verify with password", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+  <% end %>
+<% end %>
+<% if Array(@methods).include?(:email_link) %>
+  <%= form_with url: "/reauthenticate/email", data: add_auth_challenge_form_data(:reauthenticate) do |form| %>
+    <%= form.hidden_field :purpose, value: @purpose %>
+    <%= add_auth_challenge_tag :reauthenticate, id: :email %>
+    <%= form.submit "Email me a verification link", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+  <% end %>
+<% end %>
+<% if Array(@methods).empty? %><p role="status">No permitted verification method is available here. Contact your account administrator for an allowed way to continue.</p><% end %>
+<p><%= link_to "Cancel", @rule&.return_to || "/", class: add_auth_class(:link) %></p>
+
+<% if Array(@methods).include?(:passkey) %>
+  <%= render "add_auth/passkeys/controls", mode: "get", options_url: "/reauthenticate/passkey/options", finish_url: "/reauthenticate/passkey", label: "Verify with a passkey", action: :reauthenticate, purpose: @purpose %>
+<% end %>

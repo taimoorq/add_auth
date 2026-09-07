@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 RSpec.shared_examples "email token lifecycle" do
-  let(:digest) { Latchkey::Core::Digest::Hmac.new(salt: "email-test", secret: "s" * 32) }
+  let(:digest) { AddAuth::Core::Digest::Hmac.new(salt: "email-test", secret: "s" * 32) }
   let(:clock) { double("clock", now: Time.now.utc) }
   let(:same_browser) { false }
   let(:service) do
-    Latchkey::Core::Strategies::EmailLink.new(store: store, digest: digest,
+    AddAuth::Core::Strategies::EmailLink.new(store: store, digest: digest,
       delivery_cipher: cipher, eligible: ->(account) { account.email_address != "disabled@example.test" },
       normalize_identifier: ->(identifier) { identifier.strip.downcase },
       identifier_for: ->(account) { account.email_address }, clock: clock, same_browser: same_browser)
@@ -22,7 +22,7 @@ RSpec.shared_examples "email token lifecycle" do
 
   context "with optional browser binding" do
     let(:same_browser) { true }
-    let(:binding) { Latchkey::Core::BrowserBinding.new(digest: digest) }
+    let(:binding) { AddAuth::Core::BrowserBinding.new(digest: digest) }
     let(:secret) { binding.generate }
 
     it "requires the original secret without spending a link on a failed attempt" do
@@ -47,7 +47,7 @@ RSpec.shared_examples "email token lifecycle" do
   end
 
   it "keeps issued links bound even when the option is disabled" do
-    binding = Latchkey::Core::BrowserBinding.new(digest: digest)
+    binding = AddAuth::Core::BrowserBinding.new(digest: digest)
     secret = binding.generate
     service.issue(identifier: user.email_address, browser_digest: binding.digest(secret))
     raw = service.delivery_token(digest: rows.last.digest)
@@ -58,10 +58,10 @@ RSpec.shared_examples "email token lifecycle" do
   it "rejects outstanding unbound links when browser binding is enabled" do
     record = issue_link
     raw = service.delivery_token(digest: record.digest)
-    bound = Latchkey::Core::Strategies::EmailLink.new(store: store, digest: digest,
+    bound = AddAuth::Core::Strategies::EmailLink.new(store: store, digest: digest,
       delivery_cipher: cipher, eligible: ->(_) { true }, normalize_identifier: ->(value) { value },
       identifier_for: ->(account) { account.email_address }, same_browser: true)
-    expect(bound.consume(token: raw, browser_secret: Latchkey::Core::BrowserBinding.new(digest: digest).generate) { |_account, persist| persist.call }).not_to be_success
+    expect(bound.consume(token: raw, browser_secret: AddAuth::Core::BrowserBinding.new(digest: digest).generate) { |_account, persist| persist.call }).not_to be_success
     expect(sessions).to be_empty
   end
 

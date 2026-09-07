@@ -1,15 +1,15 @@
-# Latchkey
+# AddAuth
 
 **0.2.0.dev (prerelease):** password, email-link and passkey sign-in extend
-Rails' generated authentication. Latchkey adds hardened sessions, verification
+Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
 [ROADMAP.md](ROADMAP.md) for verification and release gates.
 
-Latchkey builds on top of Rails 8's built-in login system instead of
+AddAuth builds on top of Rails 8's built-in login system instead of
 replacing it -- it keeps using your existing `User` and `Session` models.
 
-Read the [documentation](https://latchkeygem.com) for setup guides, configuration
+Read the [documentation](https://addauthgem.com) for setup guides, configuration
 reference and troubleshooting.
 
 ## Development checkout hardening
@@ -29,10 +29,10 @@ published package or public checkout:
   to your traffic. Exhaustion returns 429 before creating a ceremony; bound
   reauthentication, registration and completion retain their separate gates.
   This limits creation rate, not total retained rows during a cleanup outage.
-- Schedule `bin/rails latchkey:deliver_pending` every minute with the same
+- Schedule `bin/rails add_auth:deliver_pending` every minute with the same
   configuration and shared cache as the web processes. It removes expired
   ceremonies and records completion using the cache's read/write operations.
-  In production, `bin/rails latchkey:doctor`
+  In production, `bin/rails add_auth:doctor`
   reports missing cleanup after two minutes without a success. If it reports
   that problem, inspect the scheduler's errors, run the task, then rerun doctor.
   A single manual success does not verify that the recurring schedule works.
@@ -50,19 +50,19 @@ hybrid passkey devices retain the acceptance gates in [ROADMAP.md](ROADMAP.md).
 ## Quickstart
 
 Get password and email-link sign-in working in a Rails 8 app in a few minutes.
-This is enough to try Latchkey on your laptop; read "Set it up for real use"
+This is enough to try AddAuth on your laptop; read "Set it up for real use"
 below before you put it in front of real users.
 
 1. Add the exact prerelease version once it appears on the
-   [RubyGems versions page](https://rubygems.org/gems/latchkey/versions):
+   [RubyGems versions page](https://rubygems.org/gems/add_auth/versions):
 
    ```ruby
    # Gemfile
-   gem "latchkey", "0.2.0.dev"
+   gem "add_auth", "0.2.0.dev"
    ```
 
    For an unpublished local checkout, use
-   `gem "latchkey", path: "/path/to/latchkey"` instead.
+   `gem "add_auth", path: "/path/to/add_auth"` instead.
 
    ```sh
    bundle install
@@ -75,11 +75,11 @@ below before you put it in front of real users.
    bin/rails generate authentication
    ```
 
-3. Add Latchkey:
+3. Add AddAuth:
 
    ```sh
-   bin/rails generate latchkey:install
-   bin/rails generate latchkey:email_link
+   bin/rails generate add_auth:install
+   bin/rails generate add_auth:email_link
    bin/rails db:migrate
    ```
 
@@ -87,12 +87,12 @@ below before you put it in front of real users.
    in, plus a page where a signed-in user can see their active sessions and
    sign out of one remotely.
 
-4. Set these values in `config/initializers/latchkey.rb`:
+4. Set these values in `config/initializers/add_auth.rb`:
 
    ```ruby
-   Latchkey.configure do |config|
+   AddAuth.configure do |config|
      config.base_url = "http://localhost:3000"
-     config.mail_from = "Latchkey <sign-in@example.test>"
+     config.mail_from = "AddAuth <sign-in@example.test>"
      config.rate_limit_store = ActiveSupport::Cache::MemoryStore.new
    end
    ```
@@ -118,16 +118,16 @@ durable queue and real mail transport described below for deployment.
 
 ## Set it up for real use
 
-`latchkey:install` just writes the configuration file and runs a quick health
-check -- it doesn't turn anything on by itself. `latchkey:email_link` is the
+`add_auth:install` just writes the configuration file and runs a quick health
+check -- it doesn't turn anything on by itself. `add_auth:email_link` is the
 one that does the real work: it also sets up hardened sessions, adds the
 sign-in routes, and creates the database tables sign-in links are stored in.
 If you only want hardened sessions and don't need email sign-in yet, run
-`bin/rails generate latchkey:session_upgrade` instead. It's safe to run these
+`bin/rails generate add_auth:session_upgrade` instead. It's safe to run these
 generators again later -- they won't overwrite changes you've already made.
 
 ```ruby
-Latchkey.configure do |config|
+AddAuth.configure do |config|
   config.base_url = "https://accounts.example.com"
   config.mail_from = "Accounts <sign-in@example.com>"
   config.rate_limit_store = Rails.cache
@@ -152,18 +152,18 @@ Then schedule this to run at least once a minute, however you run scheduled
 jobs (cron, `whenever`, your platform's scheduler):
 
 ```sh
-bin/rails latchkey:deliver_pending
+bin/rails add_auth:deliver_pending
 ```
 
 It retries pending sign-in emails and erases expired delivery ciphertext. Keep an eye on failed background jobs -- a stuck one
 means an email that never went out.
 
-If a mail callback or interceptor intentionally cancels a message, Latchkey
-cancels that link too and emits `delivery_cancelled.latchkey` with its issuance
+If a mail callback or interceptor intentionally cancels a message, AddAuth
+cancels that link too and emits `delivery_cancelled.add_auth` with its issuance
 ID. The sweep will not resend cancelled mail. Transport failures remain retryable;
 keep delivery errors enabled so failures can be detected.
 
-Run `bin/rails latchkey:doctor` any time after changing configuration. It
+Run `bin/rails add_auth:doctor` any time after changing configuration. It
 double-checks your migrations, your `base_url`, your mail and background-job
 setup, and your CAPTCHA setup (if you turned one on), and tells you exactly
 what's missing. It also checks enabled passkey, reauthentication, recovery,
@@ -176,8 +176,8 @@ have to click a button there to actually sign in. That extra click matters:
 it stops email scanners and link-preview bots from signing you in just by
 opening your inbox. The original `/session/new` and every route to `SessionsController#create`
 use the same protected sign-in flow. The host controller file is preserved, but
-its `new`/`create` actions are handled by Latchkey once session adoption is enabled.
-Move custom sign-in presentation into Latchkey's ejected views and verify custom
+its `new`/`create` actions are handled by AddAuth once session adoption is enabled.
+Move custom sign-in presentation into AddAuth's ejected views and verify custom
 controller hooks before adoption. Password reset remains owned by Rails. Changing a password or email address automatically signs
 out other sessions and cancels any pending sign-in links, as long as the
 change goes through Rails and not a direct database update.
@@ -205,7 +205,7 @@ carefully before relying on it in production.
 
 ## Block bots with a CAPTCHA (optional)
 
-Latchkey can show a Cloudflare Turnstile or Google reCAPTCHA check before
+AddAuth can show a Cloudflare Turnstile or Google reCAPTCHA check before
 someone can sign in or request an email link. This is entirely optional --
 skip it if you don't need it yet.
 
@@ -214,9 +214,9 @@ skip it if you don't need it yet.
 2. Run one command:
 
    ```sh
-   bin/rails generate latchkey:challenge turnstile
+   bin/rails generate add_auth:challenge turnstile
    # or, for reCAPTCHA:
-   bin/rails generate latchkey:challenge recaptcha --version=v2
+   bin/rails generate add_auth:challenge recaptcha --version=v2
    ```
 
 3. Set the two keys as environment variables (in your `.env` file locally, or
@@ -237,23 +237,23 @@ use `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY` and
 Add `:reauthenticate` to `challenge_on` if revoke-all should also require captcha.
 
 One thing worth knowing: if Turnstile or reCAPTCHA itself ever goes down,
-Latchkey's default is to block sign-in rather than let everyone through
+AddAuth's default is to block sign-in rather than let everyone through
 unchecked. If you'd rather let people sign in during that kind of outage than
 lock everyone out, set `config.challenge_when_unavailable = :open` in
-`config/initializers/latchkey.rb`.
+`config/initializers/add_auth.rb`.
 
 ## Change how long sessions and links last (optional)
 
-Latchkey ships with sensible defaults, but you can adjust them:
+AddAuth ships with sensible defaults, but you can adjust them:
 
 - A signed-in session lasts **12 hours**, or **30 minutes of no activity**,
   whichever comes first.
 - An emailed sign-in link stays valid for **20 minutes**.
 
-To change any of these, edit `config/initializers/latchkey.rb`:
+To change any of these, edit `config/initializers/add_auth.rb`:
 
 ```ruby
-Latchkey.configure do |config|
+AddAuth.configure do |config|
   config.session.lifetime = 24.hours              # how long a session lasts, total
   config.session.idle_timeout = 1.hour             # how long before inactivity signs someone out
   config.email_link.token_lifetime = 10.minutes    # how long an emailed link stays clickable
@@ -265,7 +265,7 @@ the defaults follow common security guidance.
 
 ## Style the login pages
 
-The default CSS uses scoped `latchkey-*` classes and `--latchkey-*` properties.
+The default CSS uses scoped `add_auth-*` classes and `--add_auth-*` properties.
 It has no global reset or framework dependency. The gem serves its CSS and Turbo
 from fixed same-origin routes, including in hosts without an asset pipeline.
 Token pages use a minimal layout without analytics or third-party assets.
@@ -298,11 +298,11 @@ config.css_classes = {
 Include the initializer and any ejected views in Tailwind's class detection.
 For Tailwind v4, use `@source` when they fall outside automatic detection; v3
 uses the `content` configuration. See [Tailwind's source detection guide](https://tailwindcss.com/docs/detecting-classes-in-source-files).
-Latchkey does not install either framework. Verify contrast/focus in your theme.
+AddAuth does not install either framework. Verify contrast/focus in your theme.
 
 Set `config.stylesheet = nil` to render without a stylesheet. To own the markup,
-run `bin/rails generate latchkey:views --only=email_link` or
-`bin/rails generate latchkey:views --only=sessions`; customize the copied
+run `bin/rails generate add_auth:views --only=email_link` or
+`bin/rails generate add_auth:views --only=sessions`; customize the copied
 partials and dedicated layout, keeping form actions, CSRF fields, cache directives
 and secret-free assets. Prefer class overrides when markup can stay shared.
 See the ejection and upgrade instructions below.
@@ -310,18 +310,18 @@ See the ejection and upgrade instructions below.
 ## Browser-bound email and reauthentication
 
 Ordinary email links work across devices by default. After running the current
-`latchkey:email_link` generator and its additive migration, set
+`add_auth:email_link` generator and its additive migration, set
 `config.email_link.same_browser = true` to require the requesting browser. A
 wrong-browser attempt does not consume the link. Existing bound links stay bound
 when the option is disabled; enabling it rejects outstanding unbound links.
 Do not roll back to a reader that ignores browser binding while bound links live.
 
-Run `bin/rails generate latchkey:step_up` and `bin/rails db:migrate` to install
+Run `bin/rails generate add_auth:step_up` and `bin/rails db:migrate` to install
 password and email reauthentication, including the session/email prerequisites.
 Declare the purposes your host exposes:
 
 ```ruby
-Latchkey.configure do |config|
+AddAuth.configure do |config|
   config.step_up.purposes = {
     manage_profile: {
       methods: [:password, :email_link],
@@ -340,7 +340,7 @@ replays a submitted mutation. Ordinary sign-in links cannot be used for elevatio
 In a host controller, `require_elevated_session purpose: :manage_profile,
 only: :update` provides navigation to the verification page. At the actual write,
 use `with_elevated_session(purpose: :manage_profile) { |account| ... }` and check its
-`Latchkey::Result`. Perform your resource ownership, authorization and target/version
+`AddAuth::Result`. Perform your resource ownership, authorization and target/version
 checks inside that database block; do not make network calls while it holds the
 account lock. It must own the transaction and cannot run inside an outer one.
 The authentication proof is reusable for the configured freshness window; the
@@ -348,7 +348,7 @@ host owns single-use business confirmation and idempotency. Reset, revocation,
 expiry and credential changes invalidate the appropriate evidence. An unknown
 purpose or unavailable required method denies access.
 
-`bin/rails generate latchkey:views --only=step_up` ejects the shared templates.
+`bin/rails generate add_auth:views --only=step_up` ejects the shared templates.
 Passkey-only purposes require verified browser user verification. A method label
 or recent password/email timestamp cannot satisfy that requirement.
 
@@ -358,7 +358,7 @@ or recent password/email timestamp cannot satisfy that requirement.
 Run the feature generator and review its additive migrations before enabling traffic:
 
 ```sh
-bin/rails generate latchkey:passkeys
+bin/rails generate add_auth:passkeys
 bin/rails db:migrate
 ```
 
@@ -366,7 +366,7 @@ It installs the session, email, step-up and notification prerequisites. Configur
 stable deployment identity and your host's verified recovery address explicitly:
 
 ```ruby
-Latchkey.configure do |config|
+AddAuth.configure do |config|
   config.passkeys.rp_id = "example.com"
   config.passkeys.origins = ["https://accounts.example.com"]
   config.passkeys.name = "Your app"
@@ -401,7 +401,7 @@ Strict policy is per account and must be explicitly acknowledged after fresh
 passkey verification. It disables password, ordinary email and email recovery;
 password resets or feature toggles cannot turn those methods back on. Activating
 or relaxing it revokes other sessions and pending proofs. Strict accounts need a
-remaining passkey or the host's documented support process; Latchkey does not
+remaining passkey or the host's documented support process; AddAuth does not
 supply recovery codes. Keep strict enforcement installed during maintenance and
 rollback.
 
@@ -409,12 +409,12 @@ rollback.
 A successful proof returns to a separate confirmation page; it does not replay
 the sign-out request. Hosts may declare their own purposes using the same API.
 
-`latchkey:notifications` can also be installed independently with hardened
+`add_auth:notifications` can also be installed independently with hardened
 sessions. It sends notices for password/address changes, credential addition or
 removal, policy changes and completed recovery. Address changes notify both old
 and new addresses. Notifications use an encrypted durable outbox and the same
 lease/retry/cancellation machinery as sign-in mail; they contain no secret links.
-Schedule `bin/rails latchkey:deliver_pending` at least every minute for interrupted
+Schedule `bin/rails add_auth:deliver_pending` at least every minute for interrupted
 queue handoffs, retries and expired-secret cleanup. Ambiguous transport failures
 can duplicate the same message; they do not create a new authentication proof.
 Keep Action Mailer's delivery errors enabled.
@@ -427,15 +427,15 @@ adapters need their own contracts before adoption.
 ## Ejection and upgrades
 
 ```sh
-bin/rails generate latchkey:views
-bin/rails generate latchkey:controllers
-bin/rails generate latchkey:javascript
-bin/rails generate latchkey:mailer_views
-bin/rails latchkey:doctor
+bin/rails generate add_auth:views
+bin/rails generate add_auth:controllers
+bin/rails generate add_auth:javascript
+bin/rails generate add_auth:mailer_views
+bin/rails add_auth:doctor
 ```
 
 Generators preserve existing files. New copies carry a version/source fingerprint;
-`config/latchkey-ejections.json` retains their pristine upstream baseline. Commit
+`config/add_auth-ejections.json` retains their pristine upstream baseline. Commit
 that manifest with your host customizations. Doctor identifies customized or
 missing files and prints upstream changes after a gem upgrade. Apply and review
 those changes manually. To accept a reviewed upstream baseline, remove only its
@@ -445,17 +445,17 @@ report them. Rerunning a generator never silently advances
 an old baseline or overwrites your code. Keep controller policy calls, browser
 cleanup, CSRF and cache protections intact.
 
-`latchkey:views --only=passkeys` includes management and recovery; `--only=step_up`
-includes reauthentication. Ejected JavaScript lives in `app/javascript/latchkey`
+`add_auth:views --only=passkeys` includes management and recovery; `--only=step_up`
+includes reauthentication. Ejected JavaScript lives in `app/javascript/add_auth`
 and is served by the fixed asset routes. Mailers resolve host template overrides.
 The same browser suite runs with engine files and with all four surfaces ejected.
 
-For host specs, `require "latchkey/testing"` provides framework-neutral
-`Latchkey::Testing.delivered_link(mail, purpose: :sign_in)` (also
+For host specs, `require "add_auth/testing"` provides framework-neutral
+`AddAuth::Testing.delivered_link(mail, purpose: :sign_in)` (also
 `:reauthentication` and `:recovery`) and
-`Latchkey::Testing.with_virtual_authenticator(selenium_driver) { |authenticator| ... }`.
+`AddAuth::Testing.with_virtual_authenticator(selenium_driver) { |authenticator| ... }`.
 The latter removes the virtual authenticator even if the block raises; install
-Selenium in the host test bundle. Latchkey itself uses RSpec.
+Selenium in the host test bundle. AddAuth itself uses RSpec.
 
 ## Operations and rollback
 
@@ -465,8 +465,8 @@ reader during rollback while browser-bound proofs or strict accounts exist.
 Rolling back to code that ignores their policy can restore forbidden access.
 Do not drop credential/policy columns to disable a feature.
 
-Monitor `passkey_failure.latchkey` (reason only),
-`notification_enqueue_failed.latchkey` (event ID), delivery failures/cancellations
+Monitor `passkey_failure.add_auth` (reason only),
+`notification_enqueue_failed.add_auth` (event ID), delivery failures/cancellations
 and durable pending-outbox age. Filter credentials, transactions, token URLs and
 mail bodies in proxy/APM logs as well as Rails; application filtering cannot
 configure upstream infrastructure. Investigate counter-regression events as
@@ -482,7 +482,7 @@ support recovery in the actual deployment before serving users.
 ## Layout
 
 ```
-lib/latchkey/
+lib/add_auth/
   version.rb, result.rb, configuration.rb   # entry point, closed Result type
   core/                                      # Layer 1 -- plain Ruby, no Rails.
     strategies/email_link.rb, passkey.rb     #   Every security decision lives
@@ -492,9 +492,9 @@ lib/latchkey/
     engine.rb                                # Layer 2 -- thin, non-isolated
                                               #   Rails::Engine. Wires Core into
                                               #   a host app; decides nothing.
-lib/generators/latchkey/                     # install, views, controllers,
+lib/generators/add_auth/                     # install, views, controllers,
                                               #   javascript, challenge
-lib/tasks/latchkey.rake                      # latchkey:doctor
+lib/tasks/add_auth.rake                      # add_auth:doctor
 spec/
 ```
 
@@ -510,7 +510,7 @@ adoption and management, purpose-bound verification, passkey recovery and
 strict account policy, durable security mail, and challenge adapters. Account
 provisioning, address confirmation and password reset remain host responsibilities.
 Live provider interoperability, deployment operations and release acceptance
-remain explicit gates. Recovery codes and Latchkey-owned password policy are v2.
+remain explicit gates. Recovery codes and AddAuth-owned password policy are v2.
 
 ## Roadmap
 
@@ -548,24 +548,24 @@ BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec rspec
 CI runs both lines on Ruby 3.3, 3.4 and 4.0. Focused commands:
 
 ```sh
-bundle exec rspec spec/latchkey/rails/email_tokens_spec.rb
+bundle exec rspec spec/add_auth/rails/email_tokens_spec.rb
 bundle exec rspec spec/generators/persistence_generator_spec.rb
 bundle exec rspec spec/system/sign_in_spec.rb
 bundle exec rspec spec/system/passkeys_spec.rb
-LATCHKEY_EJECT_UI=1 bundle exec rspec spec/system
+ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
 ```
 
-`latchkey:email_tokens` is an internal persistence generator: it creates an
+`add_auth:email_tokens` is an internal persistence generator: it creates an
 additive token table migration and model for review. It does not run migrations,
 change the Session table, install sign-in routes or make a host production-ready.
 The low-level email lifecycle requires explicit eligibility/normalization adapters
 and a same-database transaction-owned session writer; it must not be called directly from a public
 request handler as an enumeration-safe endpoint. SQLite and PostgreSQL run the same store/request contracts. Other database
 adapters still require their contract tests. PostgreSQL tests explicitly target a
-disposable database named `latchkey_test`:
+disposable database named `add_auth_test`:
 
 ```sh
-LATCHKEY_TEST_DATABASE_URL=postgresql://localhost/latchkey_test bundle exec rspec spec/latchkey/rails spec/requests
+ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
 ```
 
 Disabling `config.email_link.enabled` rejects new email requests and hides the

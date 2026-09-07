@@ -1,26 +1,26 @@
 # Security policy
 
-Latchkey handles authentication credentials -- passwords (via the host app),
+AddAuth handles authentication credentials -- passwords (via the host app),
 passkeys, session and sign-in tokens, and cryptographic digests. Please report
 suspected vulnerabilities privately rather than opening a public issue.
 
 ## Reporting a vulnerability
 
 Use GitHub's private vulnerability reporting for this repository:
-https://github.com/taimoorq/latchkey/security/advisories/new
+https://github.com/taimoorq/add_auth/security/advisories/new
 
 If that isn't available to you, email taimoorq@gmail.com with:
 
 - A description of the vulnerability and its potential impact.
 - Steps to reproduce, or a proof-of-concept if you have one.
-- The Latchkey version, Rails version, and Ruby version involved.
+- The AddAuth version, Rails version, and Ruby version involved.
 
 Please do not disclose the issue publicly (including in a GitHub issue,
 mailing list, or social media) until a fix has been released.
 
 ## What's in scope
 
-- The `Latchkey::Core` cryptographic and authentication logic (token issuance
+- The `AddAuth::Core` cryptographic and authentication logic (token issuance
   and consumption, session adoption/resume/revocation, session/sign-in
   digesting, rate limiting and account eligibility).
 - The encrypted email intake/outbox, worker retry/lease semantics and default
@@ -38,7 +38,7 @@ mailing list, or social media) until a fix has been released.
   its Trusted Publishing configuration.
 
 Vulnerabilities in Rails itself, in `webauthn-ruby`, or in `bcrypt`/`argon2`
-should be reported to those projects directly; Latchkey will pick up fixed
+should be reported to those projects directly; AddAuth will pick up fixed
 releases via Dependabot (see `AGENTS.md` in the companion workspace repo for
 the currency policy).
 

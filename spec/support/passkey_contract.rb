@@ -3,19 +3,19 @@
 require "webauthn/fake_client"
 
 RSpec.shared_examples "passkey store contract" do
-  let(:digest) { Latchkey::Core::Digest::Hmac.new(secret: "s" * 32, salt: "passkey-contract") }
-  let(:access) { Latchkey::Core::AccessPolicy.new(credentials: ->(id) { store.credential(id: id) }, passkeys_enabled: true, email_enabled: false, trusted_recovery_address: ->(_) {}) }
-  let(:sessions) { Latchkey::Core::Sessions.new(store: session_store, digest: digest, eligible: ->(_) { true }, access_policy: access) }
+  let(:digest) { AddAuth::Core::Digest::Hmac.new(secret: "s" * 32, salt: "passkey-contract") }
+  let(:access) { AddAuth::Core::AccessPolicy.new(credentials: ->(id) { store.credential(id: id) }, passkeys_enabled: true, email_enabled: false, trusted_recovery_address: ->(_) {}) }
+  let(:sessions) { AddAuth::Core::Sessions.new(store: session_store, digest: digest, eligible: ->(_) { true }, access_policy: access) }
   let(:policy) do
-    Latchkey::Core::StepUp.new(purposes: {manage_passkeys: {methods: [:password, :passkey]}},
+    AddAuth::Core::StepUp.new(purposes: {manage_passkeys: {methods: [:password, :passkey]}},
       credential_current: ->(user:, evidence:) { evidence.method == :password || access.credential_current?(user: user, id: evidence.credential_id) })
   end
   let(:service) do
-    Latchkey::Core::Strategies::Passkey.new(store: store, sessions: sessions, policy: policy, access_policy: access,
+    AddAuth::Core::Strategies::Passkey.new(store: store, sessions: sessions, policy: policy, access_policy: access,
       digest: digest, eligible: ->(_) { true }, rp_id: "example.test", origins: ["https://example.test"], name: "Test", notify: ->(**) {}, limiter: limiter)
   end
   let(:limiter) { ->(**) { true } }
-  let(:secret) { Latchkey::Core::BrowserBinding.new(digest: digest).generate }
+  let(:secret) { AddAuth::Core::BrowserBinding.new(digest: digest).generate }
   let(:client) { WebAuthn::FakeClient.new("https://example.test", encoding: :base64url) }
 
   def prepare

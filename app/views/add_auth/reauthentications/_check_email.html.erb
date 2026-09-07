@@ -1,0 +1,3 @@
+<h1 id="add_auth-title">Check your email</h1>
+<p>If this verification is permitted, we’ve sent a link. Use the newest email within five minutes and open it in this browser.</p>
+<%= link_to "Try again or use another method", "/reauthenticate?#{URI.encode_www_form(purpose: @purpose)}", class: add_auth_class(:link) %>

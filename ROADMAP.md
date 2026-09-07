@@ -48,8 +48,8 @@ be weakened to simulate no-JS parity.
       GitHub Actions) instead of a long-lived API key, gated behind
       `rubygems_mfa_required` and `allowed_push_host`.
 - [x] `bin/setup` / `bin/console` dev scripts.
-- [ ] First successful tagged release published via the Trusted Publishing
-      workflow, to lock in the gem name on RubyGems.
+- [x] First successful tagged release published via the Trusted Publishing
+      workflow: [0.2.1 on RubyGems](https://rubygems.org/gems/add_auth/versions/0.2.1).
 
 ## 1. Core primitives
 
@@ -199,8 +199,9 @@ be weakened to simulate no-JS parity.
       including virtual authenticator lifecycle and delivered-link extraction.
 - [x] Full RSpec, Standard and dependency audit pass on supported local matrices;
       README/roadmap distinguish working development APIs from release gates.
-- [ ] Exact-commit remote CI/CodeQL and required repository security checks;
-      refresh deployed public documentation when the gem is released.
+- [x] Exact-commit remote CI/CodeQL and required repository security checks;
+      [public documentation](https://addauthgem.com/release-status/) now identifies
+      the verified RubyGems release and installation commands.
 
 ## 9. Release readiness
 
@@ -208,8 +209,9 @@ be weakened to simulate no-JS parity.
       instructions, linking to maintained public API docs as they ship.
 - [x] Security policy updated for shipped strategies, recovery limits and
       supported versions; redacted events and incident/rollback guidance documented.
-- [ ] CHANGELOG entries and successful Trusted Publishing release; a tag or
-      configured workflow alone does not prove the gem was published.
+- [x] CHANGELOG entries and successful Trusted Publishing release. The 0.2.1
+      registry checksum and all 120 package files match the reviewed candidate;
+      the downloaded gem passes a fresh local Rails installation.
 - [x] Local enabled-journey, delivery-retry/restart, expiry and transaction rollback
       evidence. Record 0.2 operational defaults and host deployment responsibilities.
 - [x] Audit adopter-requested changes against stock Rails behavior; keep app roles,

@@ -15,8 +15,28 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the exact tested default-branch commit and matching version
+        run: ruby .github/scripts/release_gate.rb
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   push:
+    needs: verify
     runs-on: ubuntu-latest
 
     permissions:
@@ -26,12 +46,12 @@ jobs:
     environment: release
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
           bundler-cache: true
-          ruby-version: ruby
-      - uses: rubygems/release-gem@v1
+          ruby-version: "3.4"
+      - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1

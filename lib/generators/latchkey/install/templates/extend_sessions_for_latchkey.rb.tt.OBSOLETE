@@ -1,0 +1,101 @@
+# This migration extends the `sessions` table that `bin/rails generate
+# authentication` created, rather than introducing a second, parallel
+# session concept. See docs/authentication-gem-plan.md section 14,
+# "Adopting the generator's Session model", for the full reasoning.
+#
+# It does three things, in order, in a single migration:
+#
+#   1. Adds the columns Latchkey's session hardening needs:
+#      `authenticated_with` (which strategy signed this session in --
+#      section 7), `elevated_at` (step-up/elevated-session timestamp --
+#      section 7), `expires_at` and `last_seen_at` (session lifetime),
+#      `revoked_at` (explicit sign-out-everywhere), and `token_digest`.
+#   2. Backfills `token_digest` for every existing session by HMAC-digesting
+#      its current plaintext `token`, using whatever digest adapter is
+#      configured (`Latchkey.configuration.session_token_digest` --
+#      HMAC-SHA256 via Rails.application.key_generator by default; see
+#      Latchkey::Core::Digest::Hmac). Existing sessions survive this
+#      upgrade -- nobody is signed out by running it.
+#   3. Removes the plaintext `token` column. Two ways to be signed in --
+#      the old plaintext lookup and the new digested one -- is worse than
+#      one imperfect way, so this migration does not leave both around.
+#
+# After running this migration, your `app/models/session.rb` needs to stop
+# referencing `token` (the generator's `has_secure_token :token` declaration
+# in particular) and instead look sessions up by `token_digest` using the
+# same digest adapter, e.g.:
+#
+#   class Session < ApplicationRecord
+#     belongs_to :user
+#
+#     def self.authenticate_by_token(raw_token)
+#       digest = Latchkey.configuration.session_token_digest
+#       find_by(token_digest: digest.digest(raw_token))
+#     end
+#   end
+#
+# and your sessions controller needs to digest the raw token from the
+# cookie the same way before looking it up, rather than querying by
+# `token:` directly. `latchkey:doctor` (section 11) will eventually check
+# for exactly this kind of drift; for now, review the diff this migration's
+# comment describes against your own Session model by hand.
+class <%= migration_class_name %> < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def up
+    add_column :sessions, :authenticated_with, :string
+    add_column :sessions, :elevated_at, :datetime
+    add_column :sessions, :expires_at, :datetime
+    add_column :sessions, :last_seen_at, :datetime
+    add_column :sessions, :revoked_at, :datetime
+    add_column :sessions, :token_digest, :string
+
+    backfill_token_digests!
+
+    add_index :sessions, :token_digest, unique: true
+    remove_column :sessions, :token, :string
+  end
+
+  def down
+    add_column :sessions, :token, :string
+
+    say "token_digest cannot be reversed back into the original plaintext " \
+      "token -- every session restored by this rollback will have a NULL " \
+      "token and will need to sign in again. Treat rolling back this far " \
+      "as equivalent to clearing the sessions table, not as a safe undo."
+
+    remove_column :sessions, :token_digest
+    remove_column :sessions, :authenticated_with
+    remove_column :sessions, :elevated_at
+    remove_column :sessions, :expires_at
+    remove_column :sessions, :last_seen_at
+    remove_column :sessions, :revoked_at
+  end
+
+  private
+
+  def backfill_token_digests!
+    # The Session class ActiveRecord has cached (if any) predates the
+    # add_column calls above -- refresh it before reading/writing the new
+    # column, or `session.token_digest =` raises NoMethodError.
+    Session.reset_column_information
+
+    digest = Latchkey.configuration.session_token_digest
+
+    say_with_time "backfilling Session#token_digest from the plaintext token" do
+      count = 0
+      # .unscoped: a host-defined default_scope on Session must not cause
+      # this backfill to silently skip rows -- every existing session needs
+      # a token_digest before `token` is removed below, not just the ones
+      # a default scope happens to surface.
+      Session.unscoped.find_each do |session|
+        # update_column: skips validations and callbacks, and does not
+        # touch updated_at -- this is a schema-migration backfill, not an
+        # application-level update, and neither validations (which may not
+        # even pass against the in-progress schema) nor callbacks (which
+        # may assume the fully-migrated shape) should run here.
+        session.update_column(:token_digest, digest.digest(session.token))
+        count += 1
+      end
+      count
+    end
+  end
+end

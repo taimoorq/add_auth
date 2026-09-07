@@ -11,8 +11,10 @@ updates:
     schedule:
       interval: weekly
     groups:
+      webauthn:
+        patterns: ["webauthn", "public_suffix", "cose", "cbor", "bindata"]
       rails:
-        patterns: ["rails", "railties", "activesupport", "activemodel", "actionpack", "activerecord"]
+        patterns: ["rails", "railties", "activesupport", "activemodel", "actionpack", "activerecord", "actionmailer", "activejob", "turbo-rails", "stimulus-rails"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

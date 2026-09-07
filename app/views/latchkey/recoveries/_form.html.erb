@@ -1,0 +1,11 @@
+<h1 id="latchkey-title">Recover your passkeys</h1>
+<p>Request a replacement link at your established recovery address. Accounts using strict policy require another passkey or your account administrator’s documented recovery process.</p>
+<% if @error %><p role="alert"><%= @error %></p><% end %>
+<%= form_with url: "/recover/email", data: latchkey_challenge_form_data(:email_link) do |form| %>
+  <%= form.label :email_address, "Recovery email address" %>
+  <%= form.email_field :email_address, required: true, maxlength: 254, autocomplete: "email" %>
+  <%= latchkey_challenge_tag :email_link %>
+  <%= form.submit "Send recovery link", data: {latchkey_challenge_target: "submit"} %>
+<% end %>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>
+<% if Latchkey.configuration.support_url %><p><%= link_to "Contact account support", Latchkey.configuration.support_url %></p><% end %>

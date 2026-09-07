@@ -3,10 +3,9 @@
 module Latchkey
   module Core
     module Challenge
-      # Deterministic adapter for specs. See
-      # docs/authentication-gem-plan.md section 13 -- `latchkey_challenges_pass!`,
-      # `_fail!`, and `_go_down!` test helpers (not yet implemented) are
-      # expected to flip this adapter's mode rather than stub HTTP calls.
+      # Deterministic adapter for specs. Install the desired mode in test setup
+      # and restore the previous configuration after each example. This exercises
+      # Core outcomes without coupling host tests to provider HTTP stubs.
       class Test < Base
         def initialize(mode: :success)
           @mode = mode

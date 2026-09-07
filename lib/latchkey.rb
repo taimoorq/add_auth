@@ -11,11 +11,23 @@ require "latchkey/configuration"
 # session hash. Latchkey::Rails (loaded below, only inside a Rails app) is the
 # thin engine that wires Core into a host application and generates
 # ejectable, disposable UI on top of it.
+require "latchkey/core/browser_binding"
+require "latchkey/core/access_policy"
+require "latchkey/core/sessions"
+require "latchkey/core/step_up"
+require "latchkey/core/intake"
+require "latchkey/core/delivery"
+require "latchkey/core/security_events"
 require "latchkey/core/strategies/email_link"
 require "latchkey/core/strategies/passkey"
 require "latchkey/core/challenge/base"
+require "latchkey/core/challenge/http"
 require "latchkey/core/challenge/null"
 require "latchkey/core/challenge/test"
+require "latchkey/core/challenge/turnstile"
+require "latchkey/core/challenge/recaptcha"
+require "latchkey/core/digest/base"
+require "latchkey/core/digest/hmac"
 
 module Latchkey
   class Error < StandardError; end
@@ -31,4 +43,8 @@ module Latchkey
   end
 end
 
-require "latchkey/rails/engine" if defined?(::Rails::Engine)
+if defined?(::Rails::Engine)
+  require "latchkey/rails/engine"
+  require "latchkey/rails/delivery_cipher"
+  require "latchkey/rails/stores/email_tokens"
+end

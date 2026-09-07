@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Sign in</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <% turbo_exempts_page_from_cache %>
+    <% turbo_page_requires_reload if request.headers["Turbo-Frame"].present? %>
+    <%= yield :head %>
+    <%= csrf_meta_tags %>
+    <script src="/latchkey/boot.js" type="module" data-turbo-track="reload"></script>
+    <%= stylesheet_link_tag latchkey_stylesheet, skip_pipeline: true if latchkey_stylesheet %>
+  </head>
+  <body class="<%= latchkey_class(:body) %>">
+    <main class="<%= latchkey_class(:panel) %>" aria-labelledby="latchkey-title">
+      <div id="latchkey-content"><%= yield %></div>
+    </main>
+  </body>
+</html>

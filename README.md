@@ -1,10 +1,10 @@
 # AddAuth
 
-**0.2.0.dev (prerelease):** password, email-link and passkey sign-in extend
+**0.2.0.dev (unreleased prerelease):** password, email-link and passkey sign-in extend
 Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
-[ROADMAP.md](ROADMAP.md) for verification and release gates.
+[features](https://addauthgem.com/features/) for the capabilities your app can enable.
 
 AddAuth builds on top of Rails 8's built-in login system instead of
 replacing it -- it keeps using your existing `User` and `Session` models.
@@ -12,57 +12,28 @@ replacing it -- it keeps using your existing `User` and `Session` models.
 Read the [documentation](https://addauthgem.com) for setup guides, configuration
 reference and troubleshooting.
 
-## Development checkout hardening
-
-The following changes are local development work and are not yet included in a
-published package or public checkout:
-
-- Authentication budgets remain five attempts per identifier and 30 per IP,
-  per action. Overlapping counters prevent a fresh burst at a five-minute
-  boundary; a limit can last up to six minutes. Attempts that are denied also
-  count. The shared cache must support atomic increments and retain counters
-  for six minutes. Keep server clocks synchronized and monitor cache eviction.
-  Upgrade every web worker to apply the new bound; changing the counter format
-  resets existing rate budgets once during deployment.
-- Anonymous passkey sign-in options share an additional budget across IPs:
-  `config.passkeys.anonymous_limit = 1000`. Set a positive integer appropriate
-  to your traffic. Exhaustion returns 429 before creating a ceremony; bound
-  reauthentication, registration and completion retain their separate gates.
-  This limits creation rate, not total retained rows during a cleanup outage.
-- Schedule `bin/rails add_auth:deliver_pending` every minute with the same
-  configuration and shared cache as the web processes. It removes expired
-  ceremonies and records completion using the cache's read/write operations.
-  In production, `bin/rails add_auth:doctor`
-  reports missing cleanup after two minutes without a success. If it reports
-  that problem, inspect the scheduler's errors, run the task, then rerun doctor.
-  A single manual success does not verify that the recurring schedule works.
-- Invalid passkey RP/origin/support settings return a generic 503 with
-  `Retry-After: 60`; doctor identifies the configuration problem. Removing a
-  step-up purpose during verification returns the browser safely to `/`, and
-  subsequent protected actions still require a currently allowed purpose.
-
-Rate limiting complements the independent IP/account budgets described in
-[OWASP's authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#login-throttling).
-Configure Rails' allowed hosts and trusted proxies at deployment; request origin
-checks still require valid CSRF tokens. Live captcha providers and physical or
-hybrid passkey devices retain the acceptance gates in [ROADMAP.md](ROADMAP.md).
-
 ## Quickstart
 
-Get password and email-link sign-in working in a Rails 8 app in a few minutes.
-This is enough to try AddAuth on your laptop; read "Set it up for real use"
-below before you put it in front of real users.
+Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
+then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
+with Active Record, and run the commands below from your Rails app’s root.
 
-1. Add the exact prerelease version once it appears on the
-   [RubyGems versions page](https://rubygems.org/gems/add_auth/versions):
+**Release availability:** `0.2.0.dev` is not yet published on RubyGems.
+The installation commands become available after that release. Check
+[release status](https://addauthgem.com/release-status/) before starting.
+Start in your app’s development environment; use the deployment settings
+below before enabling sign-in for users.
+
+1. Keep `source "https://rubygems.org"` in your app’s Gemfile and add the
+   documented prerelease version:
 
    ```ruby
    # Gemfile
    gem "add_auth", "0.2.0.dev"
    ```
 
-   For an unpublished local checkout, use
-   `gem "add_auth", path: "/path/to/add_auth"` instead.
+   The explicit version selects the prerelease. Bundler downloads it from
+   RubyGems and records it in `Gemfile.lock`.
 
    ```sh
    bundle install
@@ -202,6 +173,40 @@ on, don't roll that change back -- it would weaken security for anyone who
 already upgraded. If your app has a heavily customized login setup already,
 or a database other than SQLite or PostgreSQL, test this
 carefully before relying on it in production.
+
+## Rate limits and maintenance
+
+Configure these operating limits and scheduled tasks for your app:
+
+- Authentication budgets remain five attempts per identifier and 30 per IP,
+  per action. Overlapping counters prevent a fresh burst at a five-minute
+  boundary; a limit can last up to six minutes. Attempts that are denied also
+  count. The shared cache must support atomic increments and retain counters
+  for six minutes. Keep server clocks synchronized and monitor cache eviction.
+  Upgrade every web worker to apply the new bound; changing the counter format
+  resets existing rate budgets once during deployment.
+- Anonymous passkey sign-in options share an additional budget across IPs:
+  `config.passkeys.anonymous_limit = 1000`. Set a positive integer appropriate
+  to your traffic. Exhaustion returns 429 before creating a ceremony; bound
+  reauthentication, registration and completion retain their separate gates.
+  This limits creation rate, not total retained rows during a cleanup outage.
+- Schedule `bin/rails add_auth:deliver_pending` every minute with the same
+  configuration and shared cache as the web processes. It removes expired
+  ceremonies and records completion using the cache's read/write operations.
+  In production, `bin/rails add_auth:doctor`
+  reports missing cleanup after two minutes without a success. If it reports
+  that problem, inspect the scheduler's errors, run the task, then rerun doctor.
+  A single manual success does not verify that the recurring schedule works.
+- Invalid passkey RP/origin/support settings return a generic 503 with
+  `Retry-After: 60`; doctor identifies the configuration problem. Removing a
+  step-up purpose during verification returns the browser safely to `/`, and
+  subsequent protected actions still require a currently allowed purpose.
+
+Rate limiting complements the independent IP/account budgets described in
+[OWASP's authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#login-throttling).
+Configure Rails' allowed hosts and trusted proxies at deployment; request origin
+checks still require valid CSRF tokens. Live captcha providers and physical or
+hybrid passkey devices retain the acceptance gates in [ROADMAP.md](ROADMAP.md).
 
 ## Block bots with a CAPTCHA (optional)
 
@@ -479,29 +484,15 @@ Validate SMTP, the durable queue, shared cache, TLS/proxy trust, retention and
 support recovery in the actual deployment before serving users.
 
 
-## Layout
-
-```
-lib/add_auth/
-  version.rb, result.rb, configuration.rb   # entry point, closed Result type
-  core/                                      # Layer 1 -- plain Ruby, no Rails.
-    strategies/email_link.rb, passkey.rb     #   Every security decision lives
-    challenge/                              #   provider contract, HTTP,
-                                              #   Turnstile/reCAPTCHA adapters.
-  rails/
-    engine.rb                                # Layer 2 -- thin, non-isolated
-                                              #   Rails::Engine. Wires Core into
-                                              #   a host app; decides nothing.
-lib/generators/add_auth/                     # install, views, controllers,
-                                              #   javascript, challenge
-lib/tasks/add_auth.rake                      # add_auth:doctor
-spec/
-```
-
-Everything generated *into* a host app (layer 3 in the design doc) is meant to
-be disposable and freely ejectable; only the `Core` ⟷ `Rails` boundary is a
-stable, semver'd API. See design doc section 2 for why the split exists and
-section 11 for the fingerprinted-ejection contract.
+Disabling `config.email_link.enabled` rejects new email requests and hides the
+email form while retaining hardened session reading and revocation. Expired
+outbox ciphertext is scrubbed and expired WebAuthn ceremonies are deleted by
+`deliver_pending`; the task retains historical token and notification receipts. Set a host retention policy and schedule bounded purges of
+expired rows after your audit-retention period. Keep proxy trust configured in
+Rails, test Secure/HttpOnly/SameSite cookies through your TLS terminator, and
+verify atomic cache increments across every app instance. Doctor checks local
+configuration and schema; it cannot prove your mail provider, proxy, cache cluster
+or recovery procedures work in production.
 
 ## Scope
 
@@ -514,74 +505,16 @@ remain explicit gates. Recovery codes and AddAuth-owned password policy are v2.
 
 ## Roadmap
 
-Track v1 progress in [ROADMAP.md](ROADMAP.md) -- checked off incrementally as
-each piece lands, derived from the design doc's scope decision.
-
-## Development and verification
-
-From this repository, using Ruby 3.3 or newer:
-
-```sh
-bundle install
-bundle exec rspec
-bundle exec standardrb
-```
-
-The suite boots `spec/dummy`, generates its token persistence model/migration,
-uses its disposable SQLite test database, and generates a separate temporary Rails
-host. It verifies host password sign-in/reset/sign-out, encrypted delivery intent,
-replay, real database races, rollback, address changes and generator repeatability.
-Chrome system specs exercise delivered email, password and passkey journeys,
-including a virtual authenticator, conditional mediation, replacement recovery,
-strict denial, frame breakout, real CSRF and JavaScript-disabled alternatives. Install Chrome or
-Chromium for the full suite; Selenium manages the matching driver.
-
-Run a supported Rails line explicitly after installing its bundle:
-
-```sh
-BUNDLE_GEMFILE=gemfiles/rails_8_0.gemfile bundle install
-BUNDLE_GEMFILE=gemfiles/rails_8_0.gemfile bundle exec rspec
-BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle install
-BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec rspec
-```
-
-CI runs both lines on Ruby 3.3, 3.4 and 4.0. Focused commands:
-
-```sh
-bundle exec rspec spec/add_auth/rails/email_tokens_spec.rb
-bundle exec rspec spec/generators/persistence_generator_spec.rb
-bundle exec rspec spec/system/sign_in_spec.rb
-bundle exec rspec spec/system/passkeys_spec.rb
-ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-```
-
-`add_auth:email_tokens` is an internal persistence generator: it creates an
-additive token table migration and model for review. It does not run migrations,
-change the Session table, install sign-in routes or make a host production-ready.
-The low-level email lifecycle requires explicit eligibility/normalization adapters
-and a same-database transaction-owned session writer; it must not be called directly from a public
-request handler as an enumeration-safe endpoint. SQLite and PostgreSQL run the same store/request contracts. Other database
-adapters still require their contract tests. PostgreSQL tests explicitly target a
-disposable database named `add_auth_test`:
-
-```sh
-ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
-```
-
-Disabling `config.email_link.enabled` rejects new email requests and hides the
-email form while retaining hardened session reading and revocation. Expired
-outbox ciphertext is scrubbed and expired WebAuthn ceremonies are deleted by
-`deliver_pending`; the task retains historical token and notification receipts. Set a host retention policy and schedule bounded purges of
-expired rows after your audit-retention period. Keep proxy trust configured in
-Rails, test Secure/HttpOnly/SameSite cookies through your TLS terminator, and
-verify atomic cache increments across every app instance. Doctor checks local
-configuration and schema; it cannot prove your mail provider, proxy, cache cluster
-or recovery procedures work in production.
+Track development progress in [ROADMAP.md](ROADMAP.md). Check
+[release status](https://addauthgem.com/release-status/) for package availability.
 
 ## Contributing
 
-Not yet accepting contributions -- v1 doesn't exist yet. Filing issues that
-poke holes in the design doc or the roadmap is welcome.
+Public issues are open for bug reports and feedback; pull requests are currently
+restricted to collaborators. See the
+[contributor guide](https://github.com/taimoorq/add_auth/blob/master/CONTRIBUTING.md)
+for checkout setup, source layout and test commands. Report vulnerabilities
+privately through [SECURITY.md](SECURITY.md).
 
 ## License
 

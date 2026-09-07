@@ -126,6 +126,43 @@ RSpec.describe AddAuth::Core::Sessions, database: true do
     expect(service.revoke_one(user: user, session: initiating.session, session_id: "not-an-id")).to be(false)
   end
 
+  it "bounds historical reads and visits every live candidate without duplicating the current browser" do
+    current = service.start(user: user, method: :password)
+    attributes = current.session.attributes.except("id").merge("revoked_at" => now)
+    Session.insert_all!(1000.times.map { |i| attributes.merge("token_digest" => "old-#{i}") })
+    rows = 55.times.map { service.start(user: user, method: :password).session }
+    loaded = []
+    subscriber = ActiveSupport::Notifications.subscribe("instantiation.active_record") do |*args|
+      data = args.last
+      loaded << data[:record_count] if data[:class_name] == "Session"
+    end
+    first = service.list_page(user: user, current_session_id: current.session.id)
+    expect(loaded.sum).to eq(52) # 50 candidates, one lookahead, one current session
+    expect(first.entries.first.id).to eq(current.session.id)
+    expect(first.entries.length).to eq(51)
+    # Touches do not change the creation-order cursor.
+    rows.first.update!(last_seen_at: now + 1)
+    second = service.list_page(user: user, current_session_id: current.session.id, before: first.next_cursor)
+    expect(second.entries.map(&:id)).to eq(rows.first(5).reverse.map(&:id))
+    expect(second.next_cursor).to be_nil
+    expect((first.entries + second.entries).map(&:id).uniq.length).to eq(56)
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+  end
+
+  it "keeps navigation after Core rejects candidates and rejects malformed cursors without querying" do
+    51.times { service.start(user: user, method: :password) }
+    policy = double(session_allowed?: false)
+    guarded = described_class.new(store: store, digest: digest, eligible: eligible, clock: clock, access_policy: policy)
+    page = guarded.list_page(user: user)
+    expect(page.entries).to be_empty
+    expect(page.next_cursor).to be_present
+    expect(store).not_to receive(:list_for_user)
+    ["-1", "1 OR 1=1", "9" * 100, {id: 1}].each do |cursor|
+      expect(guarded.list_page(user: user, before: cursor).entries).to be_empty
+    end
+  end
+
   it "revokes every active session only with a bound fresh sign-out grant" do
     current = service.start(user: user, method: :password)
     other = service.start(user: user, method: :email_link)

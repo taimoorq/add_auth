@@ -11,12 +11,16 @@ module AddAuth
     StepUpOptions = Struct.new(:enabled, :purposes, :fresh_for, :strong_for)
     PasskeyOptions = Struct.new(:enabled, :rp_id, :origins, :name, :anonymous_limit)
     NotificationOptions = Struct.new(:enabled)
-    attr_reader :notifications, :passkeys, :session, :email_link, :step_up, :challenge_when_unavailable
+    MaintenanceOptions = Struct.new(:batch_size, :session_retention, :email_retention, :notification_retention)
+    attr_accessor :passwords_enabled
+    attr_reader :maintenance, :notifications, :passkeys, :session, :email_link, :step_up, :challenge_when_unavailable
 
     def initialize
+      @passwords_enabled = true
       @session = SessionOptions.new(enabled: false, lifetime: 43_200, idle_timeout: 1800)
       @email_link = EmailOptions.new(enabled: false, token_lifetime: 1200, same_browser: false)
       @notifications = NotificationOptions.new(enabled: false)
+      @maintenance = MaintenanceOptions.new(batch_size: 100)
       @passkeys = PasskeyOptions.new(enabled: false, origins: [], name: "Your account", anonymous_limit: 1000)
       @trusted_recovery_address = ->(_user) {}
       @step_up = StepUpOptions.new(enabled: false, purposes: {}, fresh_for: 600, strong_for: 300)

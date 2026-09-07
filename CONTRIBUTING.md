@@ -97,3 +97,25 @@ disposable database named `add_auth_test`:
 ```sh
 ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
 ```
+
+## Local operational acceptance
+
+With Ruby 3.4, Redis's `redis-server` executable and the optional test bundle:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle install
+BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle exec rspec spec/operations/local_acceptance.rb
+```
+
+This opt-in suite starts its own loopback Redis, SMTP sink and Sidekiq worker,
+using temporary state and synthetic accounts. It verifies cross-process atomic
+cache increments, persisted queue recovery after Redis restart, SMTP retry using
+the same issuance and completed-delivery suppression after worker restart. It
+stops its own processes and removes temporary state. It does not contact real
+mailboxes or use the developer's Redis/SMTP settings. Run it separately from
+other suites using `spec/dummy` because they share the disposable test database.
+
+Local acceptance does not establish delivery through a host's provider or
+physical/hybrid passkey interoperability. Application maintainers verify those
+conditions in their own deployment. Sidekiq and Redis are test dependencies in
+this optional bundle; they are not AddAuth runtime dependencies.

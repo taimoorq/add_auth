@@ -1,6 +1,7 @@
 <h1 id="add_auth-title">Sign in</h1>
-<p class="<%= add_auth_class(:muted) %>">Use your password to sign in.</p>
+<p class="<%= add_auth_class(:muted) %>">Choose an available sign-in method.</p>
 <% if @error %><p class="<%= add_auth_class(:notice) %>" role="alert"><%= @error %></p><% end %>
+<% if AddAuth.configuration.passwords_enabled %>
 <%= form_with url: "/sign-in/password", id: "add_auth-password-form", data: add_auth_challenge_form_data(:sign_in) do |form| %>
   <div class="<%= add_auth_class(:field) %>">
     <%= form.label :email_address, "Email address" %>
@@ -12,6 +13,7 @@
   </div>
   <%= add_auth_challenge_tag :sign_in %>
   <%= form.submit "Sign in with password", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+<% end %>
 <% end %>
 <% if AddAuth::Core::Intake.email_available?(AddAuth.configuration) %>
 <hr class="<%= add_auth_class(:divider) %>">

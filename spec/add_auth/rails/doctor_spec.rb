@@ -12,7 +12,7 @@ RSpec.describe "add_auth:doctor", type: :task, database: true do
     task = Rake::Task["add_auth:doctor"]
     task.reenable
 
-    expect { task.invoke }.to output(/session\/email\/challenge checks passed/).to_stdout
+    expect { task.invoke }.to output(/AddAuth configuration checks passed/).to_stdout
   end
 end
 
@@ -92,5 +92,41 @@ RSpec.describe AddAuth::Rails::Doctor, database: true do
     allow(ApplicationController).to receive(:instance_method).and_call_original
     allow(ApplicationController).to receive(:instance_method).with(:add_auth_write_cookie).and_return(double(owner: ApplicationController))
     expect(problems.join).to include("hardened cookie/session hook add_auth_write_cookie")
+  end
+
+  it "checks production mail, durable jobs and scheduling for standalone notifications" do
+    config = AddAuth.configuration
+    previous = [config.email_link.enabled, config.notifications.enabled, config.passkeys.enabled]
+    config.email_link.enabled = false
+    config.notifications.enabled = true
+    config.passkeys.enabled = false
+    allow(Rails.env).to receive(:production?).and_return(true)
+    expect(problems.join).to include("durable job adapter", "production mail delivery", "successful cleanup")
+    AddAuth::Rails::Runtime.record_maintenance
+    expect(described_class.new.call.join).not_to include("successful cleanup")
+  ensure
+    config.email_link.enabled, config.notifications.enabled, config.passkeys.enabled = previous
+  end
+
+  it "reports invalid maintenance configuration before the scheduler runs" do
+    options = AddAuth.configuration.maintenance
+    previous = options.batch_size
+    options.batch_size = 0
+    expect(problems.join).to include("maintenance batch size")
+  ensure
+    options.batch_size = previous
+  end
+
+  it "keeps an installed stock password entry guarded even when password authentication is disabled" do
+    config = AddAuth.configuration
+    previous = config.passwords_enabled
+    allow(SessionsController).to receive(:<).with(AddAuth::Rails::PasswordEntry).and_return(false)
+    expect(described_class.new.call.join).to include("shared password entry")
+    config.passwords_enabled = false
+    expect(described_class.new.call.join).to include("shared password entry")
+    config.passwords_enabled = "false"
+    expect(described_class.new.call.join).to include("passwords_enabled to true or false")
+  ensure
+    config.passwords_enabled = previous
   end
 end

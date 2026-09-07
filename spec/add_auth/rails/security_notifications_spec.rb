@@ -103,6 +103,17 @@ RSpec.describe "Durable security notifications", database: true do
     expect { task.invoke }.to raise_error(AddAuth::Error, /heartbeat store unavailable/)
   end
 
+  it "fails the sweep when Active Job declines enqueue and preserves the pending intent" do
+    record = issue
+    allow(AddAuth::SecurityNotificationJob).to receive(:perform_later).and_return(false)
+    Rails.application.load_tasks unless Rake::Task.task_defined?("add_auth:deliver_pending")
+    task = Rake::Task["add_auth:deliver_pending"]
+    task.reenable
+    expect { task.invoke }.to raise_error(AddAuth::Error, /enqueue failed/)
+    expect(record.reload.delivery_payload).to be_present
+    expect(AddAuth::Rails::Runtime.maintenance_current?).to be(false)
+  end
+
   it "retries an ambiguous transport error with the same event and suppresses cancelled notices" do
     record = issue
     allow(AddAuth::SecurityMailer).to receive(:notice).and_raise(IOError, "ambiguous send")

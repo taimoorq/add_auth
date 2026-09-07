@@ -18,7 +18,9 @@ module AddAuth
           require "add_auth/rails/password_entry"
           require "add_auth/rails/elevation"
           ::ApplicationController.include AddAuth::Rails::Elevation
-          ::SessionsController.include AddAuth::Rails::PasswordEntry
+          if AddAuth.configuration.passwords_enabled || defined?(::SessionsController)
+            ::SessionsController.include AddAuth::Rails::PasswordEntry
+          end
         end
       end
 

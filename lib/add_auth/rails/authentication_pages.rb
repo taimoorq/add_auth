@@ -4,11 +4,12 @@ module AddAuth
   module Rails
     module AuthenticationPages
       def add_auth_password_sign_in
+        return head :not_found unless Runtime.config.passwords_enabled
         intake = Runtime.intake.call(identifier: params[:email_address], ip: request.remote_ip,
           action: :sign_in, challenge_token: challenge_token)
         return intake_failure(intake) if intake.is_a?(Symbol)
         grant = Runtime.sessions.authenticate(identifier: intake, password: params[:password], replacing: add_auth_replacement_session, **add_auth_session_hints) do
-          ::User.authenticate_by(email_address: intake, password: params[:password].is_a?(String) ? params[:password] : "")
+          Runtime.authenticate_password(identifier: intake, password: params[:password])
         end
         if grant
           destination = after_authentication_url

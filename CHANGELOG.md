@@ -1,10 +1,12 @@
 # Changelog
 
-## 0.2.0.dev — 2026-09-07 (prerelease)
+## 0.2.0 — 2026-09-07
 
-First integrated development release for evaluation in Rails 8.0 and 8.1 hosts
-on Ruby 3.3, 3.4 and 4.0. Production acceptance and API stabilization remain open;
-see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
+First integrated 0.2 release for Rails 8.0 and 8.1 hosts on Ruby 3.3, 3.4 and
+4.0. Local integration acceptance covers real stores, generated hosts, browser
+journeys and SMTP/queue/cache recovery. Hosts own verification of their production
+providers and physical devices. Review generated changes when upgrading this
+pre-1.0 API. The earlier `v0.1.0` tag did not publish a gem.
 
 ### AddAuth name
 
@@ -12,8 +14,23 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
   `AddAuth` and `add_auth:*` generators/tasks. Standard Rails/Thor naming handles engine loading, models, controllers and
   generator discovery without an inflection override.
 - Fresh installations use AddAuth tables, configuration, cookies, cryptographic
-  contexts, jobs and ejection manifests. This prerelease does not migrate an
+  contexts, jobs and ejection manifests. This release does not migrate an
   existing Latchkey installation or provide a legacy namespace alias.
+
+### Operations and documentation
+
+- Bound session pages to 50 candidates plus the current browser and one lookahead,
+  using account-scoped creation-order cursors. Add session lookup/retention indexes.
+- Bound each maintenance operation to 100 rows by default (configurable 1–1000).
+  Add opt-in session and email/notification receipt retention. Recheck eligibility
+  during cleanup, protect active delivery leases and report completed-pass counts.
+- Check standalone notification queue/mail configuration and successful cleanup
+  in doctor; fail the sweep if the queue declines a handoff.
+- Add local Redis/Sidekiq/SMTP restart and retry acceptance without runtime
+  dependencies on those services.
+- Expand the RubyGems-first manual with passkeys, reauthentication, recovery,
+  notifications, testing and operations guides, highlighted code and accessible
+  Mermaid diagrams. Email themes remain an optional host presentation choice.
 
 ### Security and lifecycle hardening
 
@@ -46,6 +63,11 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
   and add PostgreSQL CI plus the Ruby 4.0/PostgreSQL branch checks.
 ### Authentication features and host integration
 
+- Add explicit email/passkey-only mode, rejecting password proof while keeping
+  installed Rails password aliases guarded. Support a User without password
+  methods during email-address invalidation. Default password behavior is unchanged.
+- Require authenticated sessions on account-management endpoints even in hosts
+  whose general page guard permits anonymous readers; retain public proof routes.
 - Add optional browser-bound ordinary email links and public password/email/passkey
   reauthentication, always binding email elevation to its browser/session/purpose.
 - Add discoverable passkey enrollment, explicit/conditional sign-in, management,
@@ -92,9 +114,3 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
   the engine and make challenge verification outcomes immutable.
 - Add shared fake/SQLite contracts, host request specs, fresh Rails generator tests
   and a Ruby/Rails CI matrix. Replace generated Minitest stubs with RSpec coverage.
-
-- Repository skeleton: two-layer architecture (`AddAuth::Core` /
-  `AddAuth::Rails::Engine`), closed `Result` type, challenge adapter
-  interface (`Base`/`Null`/`Test`), remaining generator stubs (`views`,
-  `controllers`, `javascript`), and the `add_auth:doctor` rake task stub.
-  See the canonical design in the companion workspace.

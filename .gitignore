@@ -4,6 +4,16 @@
 /spec/dummy/tmp/
 /spec/dummy/log/
 /spec/dummy/db/*.sqlite3
+/spec/dummy/storage/
+# Never publish the dummy app's Rails master key -- it decrypts
+# config/credentials.yml.enc, which is safe to commit on its own but not
+# alongside the key that unlocks it. Flagged in the 2026-09-06 review.
+/spec/dummy/config/master.key
 .DS_Store
 *.gem
 Gemfile.lock
+
+/gemfiles/*.lock
+/spec/dummy/db/schema.rb
+/spec/dummy/app/models/latchkey_sign_in_token.rb
+/spec/dummy/db/migrate/*_create_latchkey_sign_in_tokens.rb

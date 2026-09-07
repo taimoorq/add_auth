@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/latchkey/ejection"
 
 module Latchkey
   module Generators
-    # `bin/rails g latchkey:views` -- see docs/authentication-gem-plan.md
-    # section 11 for what this generator is responsible for.
     class ViewsGenerator < ::Rails::Generators::Base
-      source_root File.expand_path("templates", __dir__)
+      include Ejection
 
-      def generate
-        say "latchkey:views is not implemented yet -- see docs/authentication-gem-plan.md section 11", :yellow
-      end
+      class_option :only, type: :string, default: "email_link"
+
+      def generate = eject(:views, only: options[:only])
     end
   end
 end

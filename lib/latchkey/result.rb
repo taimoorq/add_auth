@@ -11,17 +11,17 @@ module Latchkey
     # Closed set. Adding a value here is a deliberate, documented decision --
     # hosts are expected to `case`/`in` over this list.
     REASONS = %i[
-      invalid_credentials  unknown_identifier   unconfirmed
-      locked               disabled             expired_token
-      consumed_token       revoked_token        challenge_rejected
-      challenge_unavailable  rate_limited       origin_mismatch
-      counter_regression   elevation_required
+      invalid_credentials unknown_identifier unconfirmed
+      locked disabled expired_token
+      consumed_token revoked_token challenge_rejected
+      challenge_unavailable rate_limited origin_mismatch
+      counter_regression elevation_required
     ].freeze
 
-    attr_reader :user, :strategy, :credential, :reason
+    attr_reader :user, :strategy, :credential, :reason, :session, :grant
 
-    def self.success(user:, strategy:, credential: nil)
-      new(success: true, user:, strategy:, credential:)
+    def self.success(user:, strategy:, credential: nil, session: nil, grant: nil)
+      new(success: true, user:, strategy:, credential:, session:, grant:)
     end
 
     def self.failure(reason:)
@@ -38,14 +38,17 @@ module Latchkey
       !success?
     end
 
+    def inspect = "#<Latchkey::Result success=#{success?} strategy=#{strategy.inspect} reason=#{reason.inspect}>"
+
     private
 
-    def initialize(success:, user: nil, strategy: nil, credential: nil, reason: nil)
+    def initialize(success:, user: nil, strategy: nil, credential: nil, reason: nil, session: nil, grant: nil)
       @success = success
       @user = user
       @strategy = strategy
       @credential = credential
       @reason = reason
+      @session, @grant = session, grant
       freeze
     end
   end

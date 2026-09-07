@@ -1,0 +1,9 @@
+<h1 id="latchkey-title">Confirm passkey recovery</h1>
+<p>Recover access to <strong><%= @preview.fetch(:masked_address) %></strong>. This replaces any account signed in on this browser. You’ll have ten minutes to add a replacement passkey.</p>
+<p>Existing passkeys stay active until you explicitly review and remove them. Other sessions are revoked only after replacement succeeds.</p>
+<%= form_with url: "/recover/link", data: {turbo_frame: "_top"} do |form| %>
+  <%= form.hidden_field :token, value: params[:token] %>
+  <%= form.hidden_field :switch_account, value: "1" %>
+  <%= form.submit "Continue recovering this account" %>
+<% end %>
+<%= link_to "Cancel", "/sign-in" %>

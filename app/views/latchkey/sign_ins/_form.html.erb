@@ -1,0 +1,32 @@
+<h1 id="latchkey-title">Sign in</h1>
+<p class="<%= latchkey_class(:muted) %>">Use your password to sign in.</p>
+<% if @error %><p class="<%= latchkey_class(:notice) %>" role="alert"><%= @error %></p><% end %>
+<%= form_with url: "/sign-in/password", id: "latchkey-password-form", data: latchkey_challenge_form_data(:sign_in) do |form| %>
+  <div class="<%= latchkey_class(:field) %>">
+    <%= form.label :email_address, "Email address" %>
+    <%= form.email_field :email_address, required: true, autocomplete: "username webauthn", value: (params[:email_address] if params[:email_address].is_a?(String)), maxlength: 254, class: latchkey_class(:input) %>
+  </div>
+  <div class="<%= latchkey_class(:field) %>">
+    <%= form.label :password, "Password" %>
+    <%= form.password_field :password, required: true, autocomplete: "current-password", class: latchkey_class(:input) %>
+  </div>
+  <%= latchkey_challenge_tag :sign_in %>
+  <%= form.submit "Sign in with password", class: latchkey_class(:button), data: {latchkey_challenge_target: "submit"} %>
+<% end %>
+<% if Latchkey::Core::Intake.email_available?(Latchkey.configuration) %>
+<hr class="<%= latchkey_class(:divider) %>">
+<%= form_with url: "/sign-in/email", id: "latchkey-email-form", data: latchkey_challenge_form_data(:email_link) do |form| %>
+  <div class="<%= latchkey_class(:field) %>">
+    <%= form.label :email_address, "Email me a sign-in link", for: "link_email_address" %>
+    <%= form.email_field :email_address, id: "link_email_address", value: (params[:email_address] if params[:email_address].is_a?(String)), required: true, autocomplete: "email", maxlength: 254, class: latchkey_class(:input) %>
+  </div>
+  <%= latchkey_challenge_tag :email_link %>
+  <%= form.submit "Send sign-in link", class: latchkey_class(:button), data: {latchkey_challenge_target: "submit"} %>
+<% end %>
+
+<% end %>
+
+<% if Latchkey.configuration.passkeys.enabled %>
+  <%= render "latchkey/passkeys/controls", mode: "get", options_url: "/passkeys/sign-in/options", finish_url: "/passkeys/sign-in", label: "Sign in with a passkey", action: :sign_in, conditional: true %>
+  <p><%= link_to "I can’t use my passkeys", "/recover" %></p>
+<% end %>

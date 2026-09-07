@@ -19,32 +19,61 @@ jobs:
         # AGENTS.md: the oldest entry here must always be a currently
         # security-patched Ruby series (https://endoflife.date/ruby), not
         # just latchkey.gemspec's stated floor. Re-check quarterly.
-        ruby: ["3.3", "3.4"]
+        ruby: ["3.3", "3.4", "4.0"]
     steps:
-      - uses: actions/checkout@v5
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Run specs
-        run: bundle exec rspec
+      - name: Run specs on both supported Rails lines
+        run: |
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec
+            LATCHKEY_EJECT_UI=1 bundle exec rspec spec/system
+          done
       - name: Lint
         run: bundle exec standardrb
 
-  # TODO: once the Rails::Engine, generators, and controllers have real,
-  # Rails-dependent specs (a dummy app under spec/dummy), add a second job
-  # matrixed on supported Rails versions (currently 8.0 and 8.1 -- see the
-  # design doc's version-floor reasoning) using separate gemfiles/ per
-  # version, not just whatever `bundle install` happens to resolve today.
-  # Today's specs are plain Ruby and don't exercise Rails at all, so a Rails
-  # matrix would currently test nothing extra.
+  postgres:
+    name: PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: latchkey_test
+          POSTGRES_PASSWORD: test-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d latchkey_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Real PostgreSQL contracts, concurrency and request journeys
+        run: |
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec spec/latchkey/rails spec/requests
+          done
+        env:
+          LATCHKEY_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/latchkey_test
 
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
@@ -52,3 +81,7 @@ jobs:
         run: |
           gem install bundler-audit
           bundler-audit check --update
+          for rails in 8_0 8_1; do
+            BUNDLE_GEMFILE="gemfiles/rails_${rails}.gemfile" bundle install
+            bundler-audit check --gemfile-lock "gemfiles/rails_${rails}.gemfile.lock"
+          done

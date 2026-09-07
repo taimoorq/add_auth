@@ -1,0 +1,2 @@
+# The dummy uses the gem's bundle (or BUNDLE_GEMFILE for a CI matrix).
+eval_gemfile "../../Gemfile"

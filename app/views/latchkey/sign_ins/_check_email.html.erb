@@ -1,0 +1,5 @@
+<h1 id="latchkey-title">Check your email</h1>
+<p role="status">If this address can sign in, a link will arrive shortly.</p>
+<p class="<%= latchkey_class(:muted) %>">Use the newest email. Open its link, then confirm to sign in on that device.</p>
+<p>Nothing yet? Check your spam folder or wait a few minutes before trying again.</p>
+<%= link_to "Request another link or use a password", "/sign-in", class: latchkey_class(:link) %>

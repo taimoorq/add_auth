@@ -1,20 +1,36 @@
 # frozen_string_literal: true
 
 namespace :latchkey do
-  desc "Audit Latchkey configuration for common misconfigurations (see docs/authentication-gem-plan.md section 11)"
+  desc "Check installed Latchkey session, email and challenge wiring"
   task doctor: :environment do
-    # TODO(v1): implement the checks from section 11:
-    #   - rp_id vs. the app's configured host (an rp_id mismatch permanently
-    #     scopes existing passkeys -- this is the single highest-value check
-    #     here, see section 6's "Hazard: RP ID")
-    #   - cookie `secure` flag in production
-    #   - challenge adapter configured wherever challenge_on names a form
-    #   - mailer default_url_options present
-    #   - session lifetime vs. idle timeout coherence
-    #   - unique index on the configured identifier column
-    #   - filter_parameters covering password/token/WebAuthn payloads
-    #   - pending Latchkey migrations
-    #   - ejected-file drift against the fingerprint each generated file carries
-    warn "latchkey:doctor is not implemented yet -- see docs/authentication-gem-plan.md section 11"
+    require "latchkey/rails/doctor"
+    doctor = Latchkey::Rails::Doctor.new
+    problems = doctor.call
+    Array(doctor.ejections).each do |entry|
+      puts "Customized: #{entry[:path]}" if entry[:customized]
+      puts entry[:diff] if entry[:diff]
+    end
+    puts problems.empty? ? "Latchkey session/email/challenge checks passed." : problems.join("\n")
+    abort "Latchkey configuration needs attention" if problems.any?
+  end
+
+  desc "Recover pending email delivery and erase expired delivery secrets; schedule at least every minute"
+  task deliver_pending: :environment do
+    now = Time.current
+    if defined?(::LatchkeyCeremony) && ::LatchkeyCeremony.table_exists?
+      ::LatchkeyCeremony.where("expires_at <= ?", now).delete_all
+    end
+    stores = []
+    stores << [::LatchkeySignInToken, Latchkey::EmailDeliveryJob] if defined?(::LatchkeySignInToken) && ::LatchkeySignInToken.table_exists?
+    stores << [::LatchkeySecurityEvent, Latchkey::SecurityNotificationJob] if defined?(::LatchkeySecurityEvent) && ::LatchkeySecurityEvent.table_exists?
+    stores.each do |model, job|
+      model.where("expires_at <= ?", now).where.not(delivery_payload: nil).update_all(delivery_payload: nil)
+      model.where(revoked_at: nil, delivered_at: nil)
+        .where.not(delivery_payload: nil).where("expires_at > ?", now)
+        .where("delivery_lease_until IS NULL OR delivery_lease_until <= ?", now).find_each do |record|
+        job.perform_later(record.id)
+      end
+    end
+    Latchkey::Rails::Runtime.record_maintenance
   end
 end

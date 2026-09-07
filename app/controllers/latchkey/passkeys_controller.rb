@@ -52,7 +52,7 @@ module Latchkey
       return unless admitted(:passkey_finish)
       result = service.authenticate(transaction: params[:transaction], credential_response: credential_payload,
         browser_secret: browser_secret, session: Current.session)
-      destination = result.success? ? Rails::Runtime.step_up_policy.rule_for(result.session.elevation_purpose).return_to : "/"
+      destination = result.success? ? Rails::Runtime.step_up_policy.return_to(result.session.elevation_purpose) : "/"
       finish(result, destination: destination, grant: result.success? ? result.credential : nil)
     end
 
@@ -105,6 +105,7 @@ module Latchkey
 
     def options(result)
       return render(json: result.credential) if result.success?
+      return render(json: {error: "Verification could not start. Try again shortly."}, status: :too_many_requests) if result.reason == :rate_limited
       error(result)
     end
 
@@ -136,6 +137,7 @@ module Latchkey
     end
 
     def service_unavailable
+      response.set_header("Retry-After", "60")
       render json: {error: "Passkeys are temporarily unavailable. Try again shortly."}, status: :service_unavailable
     end
   end

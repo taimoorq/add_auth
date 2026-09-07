@@ -3,6 +3,7 @@
 require "rails_helper"
 require "rake"
 require "latchkey/rails/doctor"
+require_relative "../../support/passkey_runtime"
 Rake::Task.define_task(:environment)
 load File.expand_path("../../../lib/tasks/latchkey.rake", __dir__)
 
@@ -12,6 +13,50 @@ RSpec.describe "latchkey:doctor", type: :task, database: true do
     task.reenable
 
     expect { task.invoke }.to output(/session\/email\/challenge checks passed/).to_stdout
+  end
+end
+
+RSpec.describe "Passkey cleanup diagnostics", database: true do
+  include_context "passkey runtime"
+  let(:runtime) { Latchkey::Rails::Runtime }
+
+  def cleanup_problem
+    Latchkey::Rails::Doctor.new.call.grep(/successful cleanup/)
+  end
+
+  it "requires a recent completed sweep in production and notices a stalled schedule" do
+    allow(Rails.env).to receive(:production?).and_return(true)
+    now = Time.now
+    expect(cleanup_problem).not_to be_empty
+    runtime.record_maintenance
+    expect(cleanup_problem).to be_empty
+    allow(Time).to receive(:now).and_return(now + 121)
+    expect(cleanup_problem).not_to be_empty
+  end
+
+  it "does not require production scheduling in a local trial" do
+    expect(cleanup_problem).to be_empty
+  end
+
+  it "does not accept another application's success in an unnamespaced shared cache" do
+    config = Latchkey.configuration
+    previous = config.sign_in_token_digest
+    runtime.record_maintenance
+    config.sign_in_token_digest = Latchkey::Core::Digest::Hmac.new(secret: "other-app" * 8, salt: "maintenance-test")
+    expect(runtime.maintenance_current?).to be(false)
+  ensure
+    config.sign_in_token_digest = previous
+  end
+
+  it "rejects future, malformed and unavailable heartbeat receipts" do
+    allow(Rails.env).to receive(:production?).and_return(true)
+    cache = runtime.rate_limit_cache
+    [Time.now.to_i + 60, "recent", nil].each do |receipt|
+      allow(cache).to receive(:read).and_return(receipt)
+      expect(cleanup_problem).not_to be_empty
+    end
+    allow(cache).to receive(:read).and_raise(IOError)
+    expect(cleanup_problem).not_to be_empty
   end
 end
 

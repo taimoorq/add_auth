@@ -12,6 +12,8 @@ RSpec.describe "Persistence generator in a fresh Rails host" do
     Dir.mktmpdir("latchkey-host-") do |parent|
       host = File.join(parent, "host")
       bundle = File.expand_path(ENV.fetch("BUNDLE_GEMFILE", File.expand_path("../../Gemfile", __dir__)))
+      development_lockfile = Bundler.default_lockfile
+      development_lock = File.binread(development_lockfile)
       environment = {"BUNDLE_GEMFILE" => bundle, "RAILS_ENV" => "test", "SECRET_KEY_BASE_DUMMY" => "1"}
       ruby = RbConfig.ruby
       stdout, stderr, status = Open3.capture3(environment, ruby, Gem.bin_path("railties", "rails"),
@@ -30,15 +32,18 @@ RSpec.describe "Persistence generator in a fresh Rails host" do
       # Bundler's path source needs the installed gem's serialized specification;
       # runtime files above came exclusively from the built gem archive.
       File.write(File.join(installed.full_gem_path, "latchkey.gemspec"), installed.to_ruby)
-      # Give the scratch host its own bundle, so Rails 8.0's authentication
-      # generator cannot `bundle add bcrypt` into the development bundle.
+      # Give the scratch host its own Gemfile and lockfile, including Bundler's
+      # original environment used by Rails' `bundle add bcrypt` subprocess.
       host_bundle = File.join(host, "Gemfile")
       File.write(host_bundle, %(source "https://rubygems.org"\ngem "latchkey", path: #{installed.full_gem_path.inspect}\ngem "rails", "=#{Rails.version}"\ngem "sqlite3", ">= 2.1"\ngem "puma"\n))
       environment["BUNDLE_GEMFILE"] = host_bundle
       environment["BUNDLER_ORIG_BUNDLE_GEMFILE"] = host_bundle
+      environment["BUNDLE_LOCKFILE"] = "#{host_bundle}.lock"
+      environment["BUNDLER_ORIG_BUNDLE_LOCKFILE"] = "#{host_bundle}.lock"
       output, errors, result = Open3.capture3(environment, ruby, Gem.bin_path("bundler", "bundle"), "install", "--local", chdir: host)
       expect(result.success?).to be(true), output + errors
       run.call("generate", "authentication")
+      expect(File.binread(development_lockfile)).to eq(development_lock)
       # Exercise session-only adoption before any email model or table exists,
       # then restore the host files to retain the persistence-only checks below.
       session_only_paths = %w[app/models/user.rb app/models/session.rb app/controllers/application_controller.rb config/routes.rb]

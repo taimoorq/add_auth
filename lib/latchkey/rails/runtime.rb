@@ -90,6 +90,7 @@ module Latchkey
           credential_model: ::LatchkeyCredential, ceremony_model: ::LatchkeyCeremony, token_model: ::LatchkeySignInToken), sessions: sessions,
           policy: step_up_policy, access_policy: access_policy, digest: config.sign_in_token_digest,
           eligible: config.eligible, rp_id: config.passkeys.rp_id, origins: config.passkeys.origins, name: config.passkeys.name,
+          limiter: method(:limit), anonymous_limit: config.passkeys.anonymous_limit,
           notify: ->(**event) { security_events.issue(**event) }, allow_localhost: !::Rails.env.production?, support_url: config.support_url,
           on_failure: ->(reason) { ::ActiveSupport::Notifications.instrument("passkey_failure.latchkey", reason: reason) })
       end
@@ -173,13 +174,26 @@ module Latchkey
       end
 
       def limit(key:, limit:)
-        cache = config.rate_limit_store || ::Rails.cache
-        bucket = "latchkey:rate:#{Time.now.to_i / 300}:#{key}"
-        count = cache.increment(bucket, 1, expires_in: 300, initial: 0)
-        raise Latchkey::Error, "rate limit store must support atomic increment" unless count.is_a?(Integer)
-        count <= limit
+        Core::RateLimit.new(counter: ->(key:, expires_in:) {
+          rate_limit_cache.increment(key, 1, expires_in: expires_in, initial: 0)
+        }).call(key: key, limit: limit)
       rescue
         raise Latchkey::Error, "rate limit store unavailable", cause: nil
+      end
+
+      def rate_limit_cache = config.rate_limit_store || ::Rails.cache
+
+      def maintenance_cache_key = "latchkey:maintenance:v1:#{config.sign_in_token_digest.digest("last-success")}"
+
+      def record_maintenance
+        unless rate_limit_cache.write(maintenance_cache_key, Time.now.to_i, expires_in: 180)
+          raise Latchkey::Error, "maintenance heartbeat store unavailable"
+        end
+      end
+
+      def maintenance_current?
+        completed = rate_limit_cache.read(maintenance_cache_key)
+        completed.is_a?(Integer) && (0..120).cover?(Time.now.to_i - completed)
       end
 
       def sign_in_url(token, purpose: "sign_in")

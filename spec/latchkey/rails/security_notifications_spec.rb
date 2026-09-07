@@ -83,6 +83,24 @@ RSpec.describe "Durable security notifications", database: true do
     expect(record.reload.delivery_payload).to be_nil
     expect(LatchkeyCeremony.exists?(expired.id)).to be(false)
     expect(LatchkeyCeremony.exists?(live.id)).to be(true)
+    expect(Latchkey::Rails::Runtime.maintenance_current?).to be(true)
+  end
+
+  it "does not record a successful sweep when cleanup fails" do
+    allow(LatchkeyCeremony).to receive(:where).and_raise(ActiveRecord::StatementInvalid)
+    Rails.application.load_tasks unless Rake::Task.task_defined?("latchkey:deliver_pending")
+    task = Rake::Task["latchkey:deliver_pending"]
+    task.reenable
+    expect { task.invoke }.to raise_error(ActiveRecord::StatementInvalid)
+    expect(Latchkey::Rails::Runtime.maintenance_current?).to be(false)
+  end
+
+  it "reports a failed heartbeat write to the scheduler" do
+    allow(Latchkey::Rails::Runtime.rate_limit_cache).to receive(:write).and_return(false)
+    Rails.application.load_tasks unless Rake::Task.task_defined?("latchkey:deliver_pending")
+    task = Rake::Task["latchkey:deliver_pending"]
+    task.reenable
+    expect { task.invoke }.to raise_error(Latchkey::Error, /heartbeat store unavailable/)
   end
 
   it "retries an ambiguous transport error with the same event and suppresses cancelled notices" do

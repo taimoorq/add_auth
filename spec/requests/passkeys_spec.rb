@@ -79,4 +79,56 @@ RSpec.describe "Public passkey verification", type: :request, database: true do
     expect(response).to have_http_status(422)
     expect(credential.reload).to have_attributes(nickname: "Passkey", revoked_at: nil)
   end
+
+  it "returns safely after passkey rotation when the purpose disappears" do
+    enroll
+    allow(Latchkey::Rails::Runtime).to receive(:passkeys).and_wrap_original do |original|
+      service = original.call
+      allow(service).to receive(:authenticate).and_wrap_original do |verify, **args|
+        result = verify.call(**args)
+        expect(result).to be_success
+        Latchkey.configuration.step_up.purposes.delete(:strong)
+        result
+      end
+      service
+    end
+    elevate(:strong)
+    expect(response.parsed_body).to eq("redirect" => "/")
+    expect(Session.last.elevation_purpose).to eq("strong")
+  end
+end
+
+RSpec.describe "Anonymous passkey availability", type: :request, database: true do
+  include_context "passkey runtime"
+
+  before { host! "localhost" }
+
+  it "returns an honest 503 for invalid configuration without creating a ceremony or session" do
+    config = Latchkey.configuration.passkeys
+    original = config.dup
+    [{rp_id: nil}, {origins: []}, {origins: [nil]}, {anonymous_limit: 0}].each do |invalid|
+      config.members.each { |field| config[field] = original[field] }
+      invalid.each { |field, value| config[field] = value }
+      post "/passkeys/sign-in/options", as: :json
+      expect(response).to have_http_status(503)
+      expect(response.headers).to include("Cache-Control" => "no-store", "Retry-After" => "60")
+      expect(response.parsed_body.fetch("error")).to include("temporarily unavailable")
+    end
+    expect(LatchkeyCeremony.count).to eq(0)
+    expect(Session.count).to eq(0)
+  end
+
+  it "caps creation across different IP addresses and allows existing ceremonies to be cancelled" do
+    Latchkey.configuration.passkeys.anonymous_limit = 2
+    starts = 3.times.map do |attempt|
+      post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => "192.0.2.#{attempt + 1}"}, as: :json
+      [response.status, response.parsed_body]
+    end
+    expect(starts.map(&:first)).to eq([200, 200, 429])
+    expect(LatchkeyCeremony.count).to eq(2)
+    expect(Session.count).to eq(0)
+    post "/passkeys/cancel", params: {transaction: starts.first.last.fetch("transaction")}, as: :json
+    expect(response).to have_http_status(204)
+    expect(LatchkeyCeremony.where.not(consumed_at: nil).count).to eq(1)
+  end
 end

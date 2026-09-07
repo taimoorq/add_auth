@@ -27,7 +27,7 @@ RSpec.shared_context "passkey services" do
     Latchkey::Core::Strategies::Passkey.new(store: store, sessions: runtime.sessions, policy: runtime.step_up_policy,
       access_policy: runtime.access_policy, digest: Latchkey.configuration.sign_in_token_digest,
       eligible: Latchkey.configuration.eligible, rp_id: "example.test", origins: ["https://example.test"], name: "Test",
-      notify: ->(**event) { events << event }, support_url: "/support")
+      notify: ->(**event) { events << event }, support_url: "/support", limiter: runtime.method(:limit))
   end
   let(:authenticator) { WebAuthn::FakeAuthenticator.new }
   let(:client) { WebAuthn::FakeClient.new("https://example.test", authenticator: authenticator, encoding: :base64url) }

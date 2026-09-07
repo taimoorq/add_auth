@@ -31,5 +31,6 @@ namespace :latchkey do
         job.perform_later(record.id)
       end
     end
+    Latchkey::Rails::Runtime.record_maintenance
   end
 end

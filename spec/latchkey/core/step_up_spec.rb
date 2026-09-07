@@ -66,6 +66,15 @@ RSpec.describe Latchkey::Core::StepUp do
     expect { described_class.new(purposes: {}, fresh_for: 0) }.to raise_error(ArgumentError)
     expect { described_class.new(purposes: {}, fresh_for: 1, strong_for: 2) }.to raise_error(ArgumentError)
   end
+
+  it "returns a safe fallback for absent purposes without authorizing them" do
+    policy = described_class.new(purposes: {profile: {methods: [:password], return_to: "/profile"}})
+    expect(policy.return_to(:profile)).to eq("/profile")
+    [nil, :removed, "https://untrusted.test", []].each do |purpose|
+      expect(policy.return_to(purpose)).to eq("/")
+      expect(policy.rule_for(purpose)).to be_nil
+    end
+  end
 end
 
 RSpec.describe "Current credential policy" do

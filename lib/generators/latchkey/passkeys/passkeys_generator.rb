@@ -57,6 +57,10 @@ module Latchkey
               # config.passkeys.rp_id = "example.com"
               # config.passkeys.origins = ["https://app.example.com"]
               # config.passkeys.name = "Your app"
+              # Shared anonymous ceremony budget per five minutes; positive integer.
+              # config.passkeys.anonymous_limit = 1000
+              # Schedule latchkey:deliver_pending every minute. Production doctor
+              # requires a completed cleanup within the last two minutes.
               # REQUIRED for email replacement: a host-verified recovery address.
               # config.trusted_recovery_address = ->(user) { user.email_address if user.confirmed? }
               # REQUIRED before strict activation: your documented support route.

@@ -85,6 +85,8 @@ module Latchkey
         rule if rule&.reauthentication
       end
 
+      def return_to(purpose) = rule_for(purpose)&.return_to || "/"
+
       def methods_for(user:, purpose:)
         rule = rule_for(purpose)
         return [] unless user && rule

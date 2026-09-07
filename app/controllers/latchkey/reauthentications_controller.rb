@@ -63,7 +63,7 @@ module Latchkey
 
     def finish(result, failure_page: "form")
       if result.success?
-        destination = Rails::Runtime.step_up_policy.rule_for(result.session.elevation_purpose).return_to
+        destination = Rails::Runtime.step_up_policy.return_to(result.session.elevation_purpose)
         latchkey_accept(result.credential)
         redirect_to destination, status: :see_other
       else

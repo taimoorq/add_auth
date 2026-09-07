@@ -79,5 +79,9 @@ module PasskeyStoreSupport
         yield((user_id == user.id) ? user : nil, copy(@tables[Ceremony].find { |row| row.digest == digest }))
       end
     end
+
+    def cancel(digest:)
+      transaction { yield copy(@tables[Ceremony].find { |row| row.digest == digest }) }
+    end
   end
 end

@@ -68,7 +68,10 @@ module Latchkey
           end
         end
         if config.passkeys.enabled
-          check("Configure passkey prerequisites, RP ID, exact origins and a safe support path") { Runtime.passkeys }
+          check("Configure passkey prerequisites, RP ID, exact origins, anonymous_limit and a safe support path") { Runtime.passkeys }
+          if ::Rails.env.production?
+            check("Schedule latchkey:deliver_pending every minute; no successful cleanup in the last two minutes") { Runtime.maintenance_current? }
+          end
           columns(::User, %w[webauthn_id latchkey_strict latchkey_policy_version], "passkeys")
           columns(::Session, %w[authentication_policy_version authentication_credential_id authentication_uv], "passkeys")
           columns(defined?(::LatchkeyCredential) && ::LatchkeyCredential,

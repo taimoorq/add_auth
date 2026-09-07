@@ -9,7 +9,7 @@ module Latchkey
     SessionOptions = Struct.new(:enabled, :lifetime, :idle_timeout, :legacy_bridge_until)
     EmailOptions = Struct.new(:enabled, :token_lifetime, :same_browser)
     StepUpOptions = Struct.new(:enabled, :purposes, :fresh_for, :strong_for)
-    PasskeyOptions = Struct.new(:enabled, :rp_id, :origins, :name)
+    PasskeyOptions = Struct.new(:enabled, :rp_id, :origins, :name, :anonymous_limit)
     NotificationOptions = Struct.new(:enabled)
     attr_reader :notifications, :passkeys, :session, :email_link, :step_up, :challenge_when_unavailable
 
@@ -17,7 +17,7 @@ module Latchkey
       @session = SessionOptions.new(enabled: false, lifetime: 43_200, idle_timeout: 1800)
       @email_link = EmailOptions.new(enabled: false, token_lifetime: 1200, same_browser: false)
       @notifications = NotificationOptions.new(enabled: false)
-      @passkeys = PasskeyOptions.new(enabled: false, origins: [], name: "Your account")
+      @passkeys = PasskeyOptions.new(enabled: false, origins: [], name: "Your account", anonymous_limit: 1000)
       @trusted_recovery_address = ->(_user) {}
       @step_up = StepUpOptions.new(enabled: false, purposes: {}, fresh_for: 600, strong_for: 300)
       @eligible = ->(_user) { true } # Hosts supply their confirmed/locked/disabled policy here.

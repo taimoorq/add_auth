@@ -15,10 +15,14 @@ module Latchkey
         Entry = Data.define(:id, :nickname, :created_at, :last_used_at, :backup_eligible, :backup_state)
 
         def initialize(store:, sessions:, policy:, access_policy:, digest:, eligible:, rp_id:, origins:, name:,
-          notify:, clock: Time, allow_localhost: false, support_url: nil, on_failure: ->(_reason) {})
+          notify:, limiter:, anonymous_limit: 1000, clock: Time, allow_localhost: false, support_url: nil, on_failure: ->(_reason) {})
           @store, @sessions, @policy, @access, @digest, @eligible = store, sessions, policy, access_policy, digest, eligible
           @clock, @notify, @support_url, @on_failure = clock, notify, support_url, on_failure
-          raise ArgumentError, "support_url must be a safe local support page" if support_url && !Sessions.safe_return(support_url)
+          @limiter, @anonymous_limit = limiter, anonymous_limit
+          unless anonymous_limit.is_a?(Integer) && anonymous_limit.positive?
+            raise Latchkey::Error, "passkeys.anonymous_limit must be a positive integer"
+          end
+          raise Latchkey::Error, "support_url must be a safe local support page" if support_url && !Sessions.safe_return(support_url)
           @binding = BrowserBinding.new(digest: digest)
           validate_origins!(rp_id, origins, allow_localhost)
           @rp = WebAuthn::RelyingParty.new(id: rp_id, name: name, allowed_origins: origins.dup,
@@ -50,6 +54,7 @@ module Latchkey
               create_options(options, kind: "assertion", user: account, session: session, purpose: purpose, browser_secret: browser_secret)
             end
           else
+            return failure(:rate_limited) unless @limiter.call(key: @digest.digest("passkey:anonymous-ceremonies"), limit: @anonymous_limit)
             options = @rp.options_for_authentication(user_verification: "required")
             create_options(options, kind: "assertion", browser_secret: browser_secret)
           end
@@ -266,9 +271,9 @@ module Latchkey
             secure && uri.host && (uri.host == rp_id || uri.host.end_with?(".#{rp_id}")) &&
               !uri.userinfo && !uri.query && !uri.fragment && uri.path.empty? && uri.to_s == origin
           end
-          raise ArgumentError, "configure a stable RP ID and exact HTTPS origins" unless valid
+          raise Latchkey::Error, "configure a stable RP ID and exact HTTPS origins" unless valid
         rescue URI::InvalidURIError, TypeError
-          raise ArgumentError, "configure a stable RP ID and exact HTTPS origins"
+          raise Latchkey::Error, "configure a stable RP ID and exact HTTPS origins"
         end
 
         def failure(reason = :invalid_credentials)

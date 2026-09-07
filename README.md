@@ -12,6 +12,41 @@ replacing it -- it keeps using your existing `User` and `Session` models.
 Read the [documentation](https://latchkeygem.com) for setup guides, configuration
 reference and troubleshooting.
 
+## Development checkout hardening
+
+The following changes are local development work and are not yet included in a
+published package or public checkout:
+
+- Authentication budgets remain five attempts per identifier and 30 per IP,
+  per action. Overlapping counters prevent a fresh burst at a five-minute
+  boundary; a limit can last up to six minutes. Attempts that are denied also
+  count. The shared cache must support atomic increments and retain counters
+  for six minutes. Keep server clocks synchronized and monitor cache eviction.
+  Upgrade every web worker to apply the new bound; changing the counter format
+  resets existing rate budgets once during deployment.
+- Anonymous passkey sign-in options share an additional budget across IPs:
+  `config.passkeys.anonymous_limit = 1000`. Set a positive integer appropriate
+  to your traffic. Exhaustion returns 429 before creating a ceremony; bound
+  reauthentication, registration and completion retain their separate gates.
+  This limits creation rate, not total retained rows during a cleanup outage.
+- Schedule `bin/rails latchkey:deliver_pending` every minute with the same
+  configuration and shared cache as the web processes. It removes expired
+  ceremonies and records completion using the cache's read/write operations.
+  In production, `bin/rails latchkey:doctor`
+  reports missing cleanup after two minutes without a success. If it reports
+  that problem, inspect the scheduler's errors, run the task, then rerun doctor.
+  A single manual success does not verify that the recurring schedule works.
+- Invalid passkey RP/origin/support settings return a generic 503 with
+  `Retry-After: 60`; doctor identifies the configuration problem. Removing a
+  step-up purpose during verification returns the browser safely to `/`, and
+  subsequent protected actions still require a currently allowed purpose.
+
+Rate limiting complements the independent IP/account budgets described in
+[OWASP's authentication guidance](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#login-throttling).
+Configure Rails' allowed hosts and trusted proxies at deployment; request origin
+checks still require valid CSRF tokens. Live captcha providers and physical or
+hybrid passkey devices retain the acceptance gates in [ROADMAP.md](ROADMAP.md).
+
 ## Quickstart
 
 Get password and email-link sign-in working in a Rails 8 app in a few minutes.

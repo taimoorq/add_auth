@@ -165,6 +165,21 @@ RSpec.describe "All password entry points", type: :request, database: true do
     expect(Session.count).to eq(0)
   end
 
+  it "keeps the account budget across a five-minute boundary with plain HTML and real CSRF" do
+    boundary = Time.at((Time.now.to_i / 300 + 1) * 300)
+    allow(Time).to receive(:now).and_return(boundary - 1)
+    csrf = token
+    5.times do
+      post "/sign-in/password", params: {email_address: user.email_address, password: "wrong", authenticity_token: csrf}
+      expect(response.status).to eq(422)
+    end
+    allow(Time).to receive(:now).and_return(boundary + 1)
+    expect(User).not_to receive(:authenticate_by)
+    post "/session", params: {email_address: user.email_address, password: "correct-password", authenticity_token: csrf}
+    expect(response.status).to eq(429)
+    expect(Session.count).to eq(0)
+  end
+
   it "returns stream errors and emits bypass only for the configured open outage policy" do
     config = Latchkey.configuration
     config.challenge = Latchkey::Core::Challenge::Test.new(mode: :unavailable)

@@ -8,6 +8,12 @@ see [ROADMAP.md](ROADMAP.md). The earlier `v0.1.0` tag did not publish a gem.
 
 ### Security and lifecycle hardening
 
+- Prevent fixed-window rate-limit bursts and cap anonymous passkey ceremonies;
+  require production doctor to observe a recent successful cleanup run.
+- Return an unavailable response for invalid passkey configuration and safely
+  redirect when a step-up purpose is removed during a request.
+- Keep generated-host Gemfiles and lockfiles isolated under Bundler 4, and serve
+  public assets through a stateless controller restricted to GET/HEAD.
 - Atomically retire the browser's previous session on password/email sign-in,
   including account switches; retain it on failed proof or database rollback.
 - Invalidate installed email tokens on password/address changes even while email

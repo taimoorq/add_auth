@@ -97,4 +97,3 @@ disposable database named `add_auth_test`:
 ```sh
 ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
 ```
-

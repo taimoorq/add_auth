@@ -15,3 +15,11 @@
     </li>
   <% end %>
 </ul>
+<nav aria-label="Session pages">
+  <% if params[:before].present? %>
+    <%= link_to "Newest sessions", security_sessions_path %>
+  <% end %>
+  <% if @session_page.next_cursor %>
+    <%= link_to "Older sessions", security_sessions_path(before: @session_page.next_cursor) %>
+  <% end %>
+</nav>

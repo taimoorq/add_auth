@@ -29,7 +29,7 @@ module AddAuth
         Core::AccessPolicy.new(credentials: ->(id) {
           ::AddAuthCredential.find_by(external_id: id) if defined?(::AddAuthCredential) && ::AddAuthCredential.table_exists?
         }, passkeys_enabled: config.passkeys.enabled, email_enabled: Core::Intake.email_available?(config),
-          trusted_recovery_address: config.trusted_recovery_address)
+          trusted_recovery_address: config.trusted_recovery_address, password_enabled: config.passwords_enabled)
       end
 
       def email(purpose: :sign_in)
@@ -66,7 +66,7 @@ module AddAuth
         return Result.failure(reason: admitted) if admitted.is_a?(Symbol)
         policy = config.step_up.enabled ? step_up_policy : Core::StepUp.new(purposes: {sign_out_everywhere: {methods: [:password]}})
         sessions.reauthenticate(user: user, session: session, purpose: :sign_out_everywhere, policy: policy) do |account|
-          ::User.authenticate_by(email_address: account.email_address, password: password.is_a?(String) ? password : "")
+          authenticate_password(identifier: account.email_address, password: password)
         end
       end
 
@@ -113,7 +113,7 @@ module AddAuth
         admitted = intake.call(identifier: user.email_address, ip: ip, action: :reauthenticate, challenge_token: challenge_token)
         return Result.failure(reason: admitted) if admitted.is_a?(Symbol)
         proof = sessions.reauthenticate(user: user, session: session, purpose: purpose, policy: step_up_policy) do |account|
-          ::User.authenticate_by(email_address: account.email_address, password: password.is_a?(String) ? password : "")
+          authenticate_password(identifier: account.email_address, password: password)
         end
         return proof unless proof.success?
         grant = sessions.rotate_for_step_up(user: user, session: session, grant: proof.credential)
@@ -126,6 +126,11 @@ module AddAuth
         payload = {identifier: user.email_address, purpose: "reauthentication", authentication_purpose: purpose.to_s,
                    session_id: session.id, session_digest: session.token_digest, browser_digest: browser_binding.digest(browser_secret)}
         enqueue_email_payload(payload)
+      end
+
+      def authenticate_password(identifier:, password:)
+        return unless config.passwords_enabled && ::User.respond_to?(:authenticate_by)
+        ::User.authenticate_by(email_address: identifier, password: password.is_a?(String) ? password : "")
       end
 
       def sign_in_path = "/sign-in"

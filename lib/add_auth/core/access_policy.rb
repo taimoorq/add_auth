@@ -5,9 +5,10 @@ module AddAuth
     # Account policy survives feature toggles; disabling passkeys cannot restore
     # weaker access to an account that explicitly adopted strict policy.
     class AccessPolicy
-      def initialize(credentials:, passkeys_enabled:, email_enabled:, trusted_recovery_address:)
+      def initialize(credentials:, passkeys_enabled:, email_enabled:, trusted_recovery_address:, password_enabled: true)
         @credentials, @passkeys_enabled, @email_enabled = credentials, passkeys_enabled, email_enabled
         @trusted_recovery_address = trusted_recovery_address
+        @password_enabled = password_enabled
       end
 
       def strict?(user) = user.respond_to?(:add_auth_strict) && user.add_auth_strict == true
@@ -16,7 +17,7 @@ module AddAuth
       def sign_in_allowed?(user, method)
         return false if strict?(user) && method.to_sym != :passkey
         case method.to_sym
-        when :password then user.respond_to?(:password_digest) && user.password_digest.is_a?(String) && !user.password_digest.empty?
+        when :password then @password_enabled && user.respond_to?(:password_digest) && user.password_digest.is_a?(String) && !user.password_digest.empty?
         when :email_link then @email_enabled
         when :passkey then @passkeys_enabled
         else false

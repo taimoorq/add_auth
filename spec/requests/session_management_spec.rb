@@ -46,6 +46,23 @@ RSpec.describe "Session management", type: :request, database: true do
     expect(current.reload.revoked_at).to be_nil
   end
 
+  it "paginates HTML and Turbo within the current account even with a forged cursor" do
+    current = sign_in
+    52.times { |i| AddAuth::Rails::Runtime.sessions.start(user: user, method: :password, user_agent: "Browser-#{i}") }
+    other = User.create!(email_address: "outsider@example.test", password: "correct-password")
+    AddAuth::Rails::Runtime.sessions.start(user: other, method: :password, user_agent: "Foreign-browser")
+    get "/sessions"
+    link = Nokogiri::HTML(response.body).at_css('a[href*="before="]')["href"]
+    expect(response.body).to include("Older sessions", "This browser", "Browser-51")
+    get link
+    expect(response.body).to include("Newest sessions", "Browser-0")
+    expect(response.body).not_to include("This browser", "Foreign-browser", "Browser-51", current.token_digest)
+    get link, headers: {"Accept" => "text/vnd.turbo-stream.html"}
+    expect(response.body).to include('target="add_auth-session-content"', "Browser-0", "Newest sessions")
+    get "/sessions", params: {before: "9223372036854775807"}
+    expect(response.body).not_to include("Foreign-browser")
+  end
+
   it "signs out the current browser and does not allow cross-account revocation" do
     current = sign_in
     foreign_user = User.create!(email_address: "other@example.test", password: "other-password")

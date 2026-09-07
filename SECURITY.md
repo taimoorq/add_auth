@@ -32,6 +32,8 @@ mailing list, or social media) until a fix has been released.
 - The Turnstile and reCAPTCHA challenge adapters, their server-side verification
   contract and scoped browser lifecycle, including failure, outage and Turbo
   replacement handling.
+- Bounded session listing and authentication-history cleanup, including account
+  scoping, eligibility rechecks and active-delivery-lease protection.
 - The generated controllers and views this gem ships,
   including their CSRF, enumeration-safety, and Turbo-Stream behavior.
 - The GitHub Actions release pipeline (`.github/workflows/push_gem.yml`) and
@@ -61,7 +63,7 @@ timeline depends on severity and complexity.
 
 ## Recovery and deployment boundaries
 
-The 0.2 development line includes default email replacement only when
+The 0.2 line includes default email replacement only when
 an explicit host callback returns a verified recovery address. Strict accounts
 cannot use password or email recovery; they require a remaining passkey or the
 host's documented support process. Password reset and feature disablement must

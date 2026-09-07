@@ -35,9 +35,17 @@ module AddAuth
 
         def update(row, **attributes) = row.update!(**attributes)
 
-        def list_for_user(user_id:)
-          @sessions.where(user_id: user_id).order(last_seen_at: :desc, created_at: :desc).to_a
+        # Query cutoffs come from Core; Core still authorizes every returned row.
+        def list_for_user(user_id:, before:, excluding:, limit:, now:, active_after:, legacy:)
+          scope = @sessions.where(user_id: user_id, revoked_at: nil)
+          scope = scope.where("id < ?", before) if before
+          scope = scope.where.not(id: excluding) if excluding
+          scope = scope.where("(expires_at IS NULL OR expires_at > ?) AND (last_seen_at IS NULL OR last_seen_at > ?)", now, active_after)
+          scope = scope.where.not(expires_at: nil).where.not(last_seen_at: nil) unless legacy
+          scope.order(id: :desc).limit(limit).to_a
         end
+
+        def find_for_user(user_id:, session_id:) = @sessions.find_by(user_id: user_id, id: session_id)
 
         def find_for_user_in_transaction(user_id:, session_id:)
           raise AddAuth::Error, "session lookup requires an account transaction" unless @users.connection.transaction_open?

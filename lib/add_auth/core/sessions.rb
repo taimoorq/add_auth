@@ -23,6 +23,8 @@ module AddAuth
         def inspect = "#<AddAuth::Core::Sessions::Entry id=#{id} current=#{current.inspect}>"
       end
       PATTERN = /\Alk1:[A-Za-z0-9_-]{43}\z/
+      PAGE_SIZE = 50
+      Page = Struct.new(:entries, :next_cursor)
 
       def initialize(store:, digest:, eligible:, lifetime: 43_200, idle_timeout: 1800,
         legacy_bridge_until: nil, clock: Time, access_policy: nil)
@@ -40,6 +42,7 @@ module AddAuth
       def start(user:, method:, replacing: nil, **hints)
         # The original Rails controller verifies before calling its session hook.
         # A reset between that proof and this lock must invalidate the proof too.
+        return if method.to_s == "password" && !user.respond_to?(:password_digest)
         verified_password_digest = user.password_digest if method.to_s == "password"
         @store.with_user(id: user.id, replacing: replacing) do |account|
           next if method.to_s == "password" && account && account.password_digest != verified_password_digest
@@ -120,17 +123,33 @@ module AddAuth
       # Returns display-safe metadata only. Bearers and digests never cross this
       # boundary, even when a host chooses to render its own management page.
       def list(user:, current_session_id: nil)
-        return [] unless user && @eligible.call(user) == true
+        list_page(user: user, current_session_id: current_session_id).entries
+      end
+
+      def list_page(user:, current_session_id: nil, before: nil)
+        empty = Page.new(entries: [])
+        return empty unless user && @eligible.call(user) == true
+        return empty unless before.nil? || before.to_s.match?(/\A[1-9]\d{0,18}\z/)
 
         now = @clock.now
-        @store.list_for_user(user_id: user.id).filter_map do |row|
+        candidates = @store.list_for_user(user_id: user.id, before: before&.to_i,
+          excluding: current_session_id, limit: PAGE_SIZE + 1, now: now,
+          active_after: now - @idle, legacy: !!(@deadline && now < @deadline))
+        cursor = candidates[PAGE_SIZE - 1].id if candidates.length > PAGE_SIZE
+        rows = candidates.first(PAGE_SIZE)
+        if before.nil? && current_session_id
+          current = @store.find_for_user(user_id: user.id, session_id: current_session_id)
+          rows.unshift(current) if current
+        end
+        entries = rows.filter_map do |row|
           next unless live?(user, row, now: now)
 
           Entry.new(id: row.id, current: row.id == current_session_id,
             authenticated_with: row.authenticated_with, authenticated_at: row.authenticated_at,
             created_at: row.created_at, last_seen_at: row.last_seen_at, expires_at: row.expires_at,
             ip_address: row.ip_address, user_agent: row.user_agent)
-        end.sort_by { |entry| [entry.current ? 0 : 1, -(entry.last_seen_at || entry.created_at).to_i] }
+        end
+        Page.new(entries: entries, next_cursor: cursor)
       end
 
       # Both the initiating bearer and target ownership are checked under lock.

@@ -15,6 +15,9 @@ module AddAuth
       def call
         @problems = []
         config = AddAuth.configuration
+        check("Configure valid maintenance batch size and retention durations") do
+          Core::Maintenance.new(stores: {}, options: config.maintenance, enqueue: ->(*) {})
+        end
         if config.session.enabled
           columns(::Session, SESSION_COLUMNS, "session")
           unique_index(::Session, "token_digest")
@@ -22,13 +25,21 @@ module AddAuth
           check("Include AddAuth authentication after the host Authentication concern") do
             ::ApplicationController.instance_method(:find_session_by_cookie).owner == Authentication
           end
-          %i[add_auth_write_cookie add_auth_accept add_auth_replacement_session terminate_session].each do |hook|
+          %i[add_auth_write_cookie add_auth_accept add_auth_replacement_session terminate_session require_add_auth_authentication].each do |hook|
             check("Restore the hardened cookie/session hook #{hook}") do
               ::ApplicationController.instance_method(hook).owner == Authentication
             end
           end
           check("Include AddAuth::Rails::UserLifecycle in User") { ::User < UserLifecycle }
-          check("Install the shared password entry in SessionsController") { ::SessionsController < PasswordEntry }
+          check("Set passwords_enabled to true or false") { [true, false].include?(config.passwords_enabled) }
+          if config.passwords_enabled || defined?(::SessionsController)
+            check("Install the shared password entry in SessionsController") { ::SessionsController < PasswordEntry }
+          end
+          if config.passwords_enabled
+            check("Keep Rails password authentication on User when passwords are enabled") do
+              ::User.column_names.include?("password_digest") && ::User.respond_to?(:authenticate_by)
+            end
+          end
           %w[/sign-in /add_auth.css /add_auth/boot.js /add_auth/turbo.js /add_auth/stimulus.js /add_auth/challenge.js /sessions].each do |path|
             check("Install route #{path}") { ::Rails.application.routes.recognize_path(path, method: :get) }
           end
@@ -51,7 +62,6 @@ module AddAuth
         end
         if config.email_link.enabled
           check("Enable session_upgrade before email_link") { config.session.enabled }
-          check("Configure mail_from") { config.mail_from.is_a?(String) && !config.mail_from.strip.empty? }
           check("Configure base_url as a fixed HTTPS origin (HTTP only outside production)") { Runtime.sign_in_url("validation") }
           columns(defined?(::AddAuthSignInToken) && ::AddAuthSignInToken, TOKEN_COLUMNS, "email delivery")
           if defined?(::AddAuthSignInToken)
@@ -61,17 +71,21 @@ module AddAuth
           if config.email_link.same_browser
             columns(defined?(::AddAuthSignInToken) && ::AddAuthSignInToken, ["browser_digest"], "email browser binding")
           end
+        end
+        if config.email_link.enabled || config.notifications.enabled
+          check("Configure mail_from") { config.mail_from.is_a?(String) && !config.mail_from.strip.empty? }
           check("Enable Action Mailer delivery") { ActionMailer::Base.perform_deliveries && ActionMailer::Base.raise_delivery_errors }
           if ::Rails.env.production?
             check("Use a durable job adapter in production") { !ActiveJob::Base.queue_adapter.class.name.match?(/Async|Inline|Test/) }
             check("Configure production mail delivery") { !%i[test file].include?(ActionMailer::Base.delivery_method) }
           end
         end
+        maintenance_needed = config.passkeys.enabled || config.email_link.enabled || config.notifications.enabled || config.maintenance.session_retention
+        if ::Rails.env.production? && maintenance_needed
+          check("Schedule add_auth:deliver_pending every minute; no successful cleanup in the last two minutes") { Runtime.maintenance_current? }
+        end
         if config.passkeys.enabled
           check("Configure passkey prerequisites, RP ID, exact origins, anonymous_limit and a safe support path") { Runtime.passkeys }
-          if ::Rails.env.production?
-            check("Schedule add_auth:deliver_pending every minute; no successful cleanup in the last two minutes") { Runtime.maintenance_current? }
-          end
           columns(::User, %w[webauthn_id add_auth_strict add_auth_policy_version], "passkeys")
           columns(::Session, %w[authentication_policy_version authentication_credential_id authentication_uv], "passkeys")
           columns(defined?(::AddAuthCredential) && ::AddAuthCredential,
@@ -92,7 +106,6 @@ module AddAuth
         if config.notifications.enabled
           columns(defined?(::AddAuthSecurityEvent) && ::AddAuthSecurityEvent,
             %w[kind digest delivery_payload delivery_lease_key delivery_lease_until delivered_at revoked_at expires_at], "security notifications")
-          check("Configure mail_from for security notifications") { config.mail_from.is_a?(String) && !config.mail_from.empty? }
           check("Enable security notification delivery errors") { ::AddAuth::SecurityMailer.raise_delivery_errors }
         end
         if config.step_up.enabled

@@ -8,7 +8,7 @@ module AddAuth
     skip_before_action :require_authentication, raise: false
     before_action :private_response
     before_action :enabled_feature
-    before_action :require_authentication, only: %i[index registration_options register rename remove change_policy reauthentication_options reauthenticate]
+    before_action :require_add_auth_authentication, only: %i[index registration_options register rename remove change_policy reauthentication_options reauthenticate]
     protect_from_forgery with: :exception
     rescue_from AddAuth::Error, with: :service_unavailable
 

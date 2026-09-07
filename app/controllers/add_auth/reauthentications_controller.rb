@@ -8,7 +8,7 @@ module AddAuth
     skip_before_action :require_authentication, raise: false
     before_action :private_response
     before_action :enabled_feature
-    before_action :require_authentication, except: %i[link confirm]
+    before_action :require_add_auth_authentication, except: %i[link confirm]
     before_action :load_purpose, only: %i[new password request_link check_email]
     protect_from_forgery with: :exception
     rescue_from AddAuth::Error, "ActiveJob::EnqueueError", with: :service_unavailable

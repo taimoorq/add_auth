@@ -5,26 +5,25 @@ sign-in, passkeys, purpose-bound reauthentication, session hardening and pluggab
 captcha. It reuses the host's accounts and Session model.
 
 The canonical design lives in the companion **private** planning workspace:
-[scope](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#14-scope-decision-and-roadmap)
-and [user journeys, contracts and test plan](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan).
+[scope](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#14-scope-decision-and-roadmap)
+and [user journeys, contracts and test plan](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan).
 Those links require workspace access. This public checklist stands on its own as
 progress tracking; it does not duplicate the private design. Engineering guidance
 stays only in that workspace's `AGENTS.md`.
 
-Reviewed 2026-09-07. The 0.2.0.dev prerelease source implements the v1
+Reviewed 2026-09-07. The 0.2.0 source implements the v1
 strategy features: password/email/passkey sign-in, hardened sessions, reauthentication,
 credential management, default recovery and strict policy, security notifications,
 challenge adapters and fingerprinted ejection. Core policy, session finalization
 and leased mail delivery are shared by engine and ejected flows.
 
-Local acceptance passes **279 RSpec examples plus 22 ejected-UI examples** on each
-Ruby 3.3.11/3.4.8/4.0.5 × Rails 8.0.5.1/8.1.3.1 combination. Standard is clean.
-PostgreSQL passes **181 store/request examples on each Rails line**. Refreshed
-root and both Rails dependency audits report no known vulnerabilities. The
-[canonical evidence ledger](https://github.com/taimoorq/add_auth-workspace/blob/master/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan)
-records successful commands and the failures that led to corrections. Checked
-items mean passing relevant local specs; remote CI/CodeQL, live-service validation,
-real-device diversity, dogfooding and release acceptance remain open.
+The 0.2 release gate uses local real-database, generated-host, browser and
+SMTP/queue/cache acceptance. The final supported matrix is recorded in the
+[canonical evidence ledger](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#20-release-020-execution--2026-09-07).
+Checked feature items mean passing relevant local specs. GitHub's required
+merge/release controls still apply. Hosts verify their own live providers,
+physical authenticators and deployment operations; those checks do not block
+the gem's 0.2 release. Email themes and branding are optional host presentation.
 
 Generated pages use shared HTML/Turbo partials. Password/email paths support
 ordinary no-JS navigation when permitted by policy; passkeys require browser
@@ -49,7 +48,7 @@ be weakened to simulate no-JS parity.
       GitHub Actions) instead of a long-lived API key, gated behind
       `rubygems_mfa_required` and `allowed_push_host`.
 - [x] `bin/setup` / `bin/console` dev scripts.
-- [ ] First successful tagged prerelease published via the Trusted Publishing
+- [ ] First successful tagged release published via the Trusted Publishing
       workflow, to lock in the gem name on RubyGems.
 
 ## 1. Core primitives
@@ -76,7 +75,7 @@ be weakened to simulate no-JS parity.
       password sign-in/reset/sign-out requests and real database coverage.
 - [x] Generate and boot Rails 8.0/8.1 hosts; exercise the persistence
       generator and preserve host customizations. CI covers both Rails lines
-      on Ruby 3.3, 3.4 and 4.0. Commands are in README.
+      on Ruby 3.3, 3.4 and 4.0. Commands are in CONTRIBUTING.md.
 - [x] Browser/virtual-authenticator harness with the passkey slice.
 
 ## 3. Adopt the host's sessions and password flow — slice B, U1/U8
@@ -94,6 +93,10 @@ be weakened to simulate no-JS parity.
       browser and cache/back-safe authenticated-page handling.
 - [x] Sign-out-everywhere, guarded by fresh allowed proof and covering every
       active browser, with old bearers rejected on their next request.
+- [x] Account-scoped cursor pages and bounded maintenance, with optional history
+      retention, active-lease protection and completed-pass counts.
+- [x] Explicit passwordless mode, guarded stock entry routes and authenticated
+      account-management pages in hosts that also serve public pages.
 
 ## 4. Complete email-link sign-in — slice C, U2
 
@@ -108,7 +111,8 @@ be weakened to simulate no-JS parity.
       retry/cleanup sweep and delivered-link-to-browser integration.
 - [x] Durable security notifications share the delivery lease/retry/cancellation
       contract and recover interrupted queue handoffs.
-- [ ] Deployment-specific SMTP, queue and notification monitoring validation.
+- [x] Local SMTP, durable queue restart/retry and cross-process shared-cache
+      acceptance. Live transport and monitoring validation belongs to each host.
 - [x] Shared IP + keyed identifier rate policy, normalization and generic
       request/resend responses for unknown, disabled and throttled accounts.
 - [x] Request → check-email → inert GET confirmation → explicit POST consume
@@ -172,8 +176,9 @@ be weakened to simulate no-JS parity.
       observable explicit fail-open policy; no implicit bypass without JS.
 - [x] Retry/outage messages, preserved input, provider protocol fixtures and no
       live-provider dependency in routine specs.
-- [ ] Full focus/keyboard/status accessibility audit and provider-backed browser
-      interoperability after ejection.
+- [x] Local keyboard/focus/status, virtual-authenticator and provider-contract
+      browser coverage in bundled and ejected UI. Broader browser/device and
+      assistive-technology verification remains a host deployment responsibility.
 
 ## 8. Generators, ejection and integrated acceptance — slice G
 
@@ -205,8 +210,10 @@ be weakened to simulate no-JS parity.
       supported versions; redacted events and incident/rollback guidance documented.
 - [ ] CHANGELOG entries and successful Trusted Publishing release; a tag or
       configured workflow alone does not prove the gem was published.
-- [ ] Dogfood all enabled journeys and record operational defaults, delivery
-      reliability, expiry behavior and migration rollback evidence.
+- [x] Local enabled-journey, delivery-retry/restart, expiry and transaction rollback
+      evidence. Record 0.2 operational defaults and host deployment responsibilities.
+- [x] Audit adopter-requested changes against stock Rails behavior; keep app roles,
+      invitations, authorization and email themes in the host.
 - [ ] `v1.0.0` only after the integrated acceptance gates pass.
 
 ## v2 — reassess after v1 usage
@@ -222,11 +229,11 @@ be weakened to simulate no-JS parity.
 
 Owner and deadline details remain in the canonical plan's section 16.
 
-- [ ] Stabilize the public API before a stable release. The implemented runtime
+- [x] Review the 0.2 configuration and public integration contract. The runtime
       uses Rails-generator User/Session conventions; authentication models must
       share one database connection pool and cross-pool writes are rejected.
-- [ ] Validate lifetime, resend, retention, key rotation and legacy-bridge
-      defaults before the first adopter enables the affected flow.
+- [x] Review lifetime/resend/legacy-bridge defaults and local failure evidence;
+      retention is opt-in, and key changes require a host deployment plan.
 - [x] Framework-neutral mail and virtual-authenticator helpers; no
       Minitest-specific integration DSL. AddAuth's own suite stays RSpec.
 - [ ] Revisit API/token authentication after v1; outside current scope.

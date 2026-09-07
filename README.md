@@ -1,6 +1,6 @@
 # AddAuth
 
-**0.2.0.dev (unreleased prerelease):** password, email-link and passkey sign-in extend
+**0.2.0:** password, email-link and passkey sign-in extend
 Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
@@ -18,22 +18,22 @@ Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** `0.2.0.dev` is not yet published on RubyGems.
-The installation commands become available after that release. Check
-[release status](https://addauthgem.com/release-status/) before starting.
+**Release availability:** these commands require the published `0.2.0` package.
+If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
+wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
 below before enabling sign-in for users.
 
 1. Keep `source "https://rubygems.org"` in your app’s Gemfile and add the
-   documented prerelease version:
+   0.2 release line:
 
    ```ruby
    # Gemfile
-   gem "add_auth", "0.2.0.dev"
+   gem "add_auth", "~> 0.2.0"
    ```
 
-   The explicit version selects the prerelease. Bundler downloads it from
-   RubyGems and records it in `Gemfile.lock`.
+   Bundler downloads the package from RubyGems and records the resolved
+   version in `Gemfile.lock`.
 
    ```sh
    bundle install
@@ -138,8 +138,8 @@ Run `bin/rails add_auth:doctor` any time after changing configuration. It
 double-checks your migrations, your `base_url`, your mail and background-job
 setup, and your CAPTCHA setup (if you turned one on), and tells you exactly
 what's missing. It also checks enabled passkey, reauthentication, recovery,
-notification and ejection wiring. Deployment acceptance remains in
-[ROADMAP.md](ROADMAP.md).
+notification and ejection wiring. Verify your host integrations using the
+[deployment checklist](https://addauthgem.com/production/).
 
 Visit `/sign-in` to sign in with a password, or to request an email link
 instead when email is enabled. Clicking the emailed link opens a confirmation page -- you still
@@ -154,6 +154,14 @@ out other sessions and cancels any pending sign-in links, as long as the
 change goes through Rails and not a direct database update.
 Password and address changes cancel existing email links even while email sign-in
 is temporarily disabled.
+For email/passkey-only sign-in, set `config.passwords_enabled = false` in the
+initializer and restart. Password verification and password proof are rejected;
+the shared sign-in page hides password controls. Existing `SessionsController`
+aliases stay guarded. A host that removes that controller owns its replacement
+routes. Review Rails' password-reset routes separately: AddAuth does not replace
+account provisioning or password reset. Keep the conventional `User`/`Session`
+models, Rails email normalization and one authentication database connection pool.
+
 Signing in again on the same browser retires its previous session; sessions on
 other browsers remain available until they expire or are revoked.
 
@@ -173,6 +181,12 @@ on, don't roll that change back -- it would weaken security for anyone who
 already upgraded. If your app has a heavily customized login setup already,
 or a database other than SQLite or PostgreSQL, test this
 carefully before relying on it in production.
+
+Session management uses up to 50 candidates per page, with the current browser
+pinned on the first page and older pages ordered by session creation ID.
+`Core::Sessions#list` returns the first page; hosts building custom lists use
+`list_page(user:, current_session_id:, before:)` and its `entries`/`next_cursor`.
+Cursors do not authorize access to another account.
 
 ## Rate limits and maintenance
 
@@ -487,8 +501,16 @@ support recovery in the actual deployment before serving users.
 Disabling `config.email_link.enabled` rejects new email requests and hides the
 email form while retaining hardened session reading and revocation. Expired
 outbox ciphertext is scrubbed and expired WebAuthn ceremonies are deleted by
-`deliver_pending`; the task retains historical token and notification receipts. Set a host retention policy and schedule bounded purges of
-expired rows after your audit-retention period. Keep proxy trust configured in
+`deliver_pending`. Each pass handles at most `config.maintenance.batch_size`
+rows per operation and model (default 100; range 1–1000). Configure
+`maintenance.session_retention`, `maintenance.email_retention` and
+`maintenance.notification_retention` as nonnegative seconds or Rails durations.
+They default to `nil`, preserving history until the host chooses its retention
+policy. Session retention starts at expiry or revocation; receipt retention starts
+at expiry. Active delivery leases and live sessions are protected. Monitor
+`maintenance.add_auth` counts and pending age: a successful bounded pass does not
+mean the backlog is empty. Repeated sweeps can enqueue duplicate jobs, handled by
+the existing delivery lease and delivered-state checks. Keep proxy trust configured in
 Rails, test Secure/HttpOnly/SameSite cookies through your TLS terminator, and
 verify atomic cache increments across every app instance. Doctor checks local
 configuration and schema; it cannot prove your mail provider, proxy, cache cluster
@@ -496,12 +518,14 @@ or recovery procedures work in production.
 
 ## Scope
 
-The development source implements password/email/passkey sign-in, session
+AddAuth 0.2 implements password/email/passkey sign-in, session
 adoption and management, purpose-bound verification, passkey recovery and
 strict account policy, durable security mail, and challenge adapters. Account
 provisioning, address confirmation and password reset remain host responsibilities.
-Live provider interoperability, deployment operations and release acceptance
-remain explicit gates. Recovery codes and AddAuth-owned password policy are v2.
+Release acceptance uses local real-database, generated-host, browser and
+SMTP/queue/cache tests. Hosts verify their own live providers and supported
+physical devices before deployment. Recovery codes and AddAuth-owned password
+policy remain deferred.
 
 ## Roadmap
 

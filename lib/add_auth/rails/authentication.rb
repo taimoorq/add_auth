@@ -8,6 +8,12 @@ module AddAuth
     module Authentication
       private
 
+      # Authentication management always requires a named session, even if
+      # the host also serves public pages through a permissive general guard.
+      def require_add_auth_authentication
+        request_authentication unless resume_session
+      end
+
       def find_session_by_cookie
         grant = Runtime.sessions.resume(signed_value: cookies.signed[:session_id])
         add_auth_write_cookie(grant) if grant&.bearer

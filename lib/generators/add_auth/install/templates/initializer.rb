@@ -1,5 +1,9 @@
 # AddAuth configuration. Feature generators enable only their own block.
 AddAuth.configure do |config|
+  # Set false for email/passkey-only sign-in. Existing Rails password entry
+  # routes remain guarded; the host owns password reset and account provisioning.
+  # config.passwords_enabled = true
+
   # BEGIN add_auth session
   # config.session.enabled = true
   # END add_auth session
@@ -18,6 +22,12 @@ AddAuth.configure do |config|
   # config.mail_from = "Your app <sign-in@your-app.example>"
   # Configure a durable Active Job adapter and schedule add_auth:deliver_pending.
   # config.rate_limit_store = Rails.cache # shared, atomic increment in production
+  # Each maintenance pass handles at most this many rows per operation/model:
+  # config.maintenance.batch_size = 100 # 1..1000
+  # History is retained until the host chooses a retention period (seconds):
+  # config.maintenance.session_retention = 7.days
+  # config.maintenance.email_retention = 7.days
+  # config.maintenance.notification_retention = 30.days
 
   # Apply the host's current confirmed/locked/disabled policy on every resume:
   # config.eligible = ->(user) { user.confirmed? && !user.locked? && !user.disabled? }
@@ -27,10 +37,10 @@ AddAuth.configure do |config|
   # config.css_classes = { input: "form-control", button: "btn btn-primary" }
   # Eject editable templates with bin/rails generate add_auth:views.
 
-  # Passkeys and public step-up/recovery remain upcoming. Challenge adapters
-  # are available through add_auth:challenge; its widget route is opt-in.
-  # These feature generators are not enabled by install. See ROADMAP.md for scope.
-  # Email recovery is the planned default; stricter policy will be opt-in.
+  # Enable optional features with add_auth:passkeys, add_auth:step_up,
+  # add_auth:notifications or add_auth:challenge. Install alone enables none.
+  # Passkey recovery needs a host-verified recovery address; strict accounts
+  # use another passkey or the host's support process, never email recovery.
   # config.challenge = AddAuth::Core::Challenge::Null.new
   # config.challenge_on = []
 end

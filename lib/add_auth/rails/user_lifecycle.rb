@@ -15,7 +15,7 @@ module AddAuth
         return unless Core::Intake.revoke_after_change?(saved_changes)
         now = Time.current
         if AddAuth.configuration.notifications.enabled
-          kind = saved_change_to_password_digest? ? :password_changed : :email_changed
+          kind = saved_changes.key?("password_digest") ? :password_changed : :email_changed
           Runtime.security_events.issue(user: self, kind: kind, at: now)
           if saved_change_to_email_address? && email_address_before_last_save != email_address
             Runtime.security_events.issue(user: self, kind: :email_changed, at: now, recipient: email_address_before_last_save)

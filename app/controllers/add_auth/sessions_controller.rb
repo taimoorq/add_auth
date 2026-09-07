@@ -6,13 +6,15 @@ module AddAuth
 
     rescue_from AddAuth::Error, with: :service_unavailable
     helper AddAuth::SignInsHelper
-    before_action :require_authentication
+    before_action :require_add_auth_authentication
     before_action :private_response
     protect_from_forgery with: :exception
     layout "application"
 
     def index
-      @sessions = Rails::Runtime.sessions.list(user: Current.user, current_session_id: Current.session.id)
+      @session_page = Rails::Runtime.sessions.list_page(user: Current.user,
+        current_session_id: Current.session.id, before: params[:before])
+      @sessions = @session_page.entries
       respond_to do |format|
         format.html { render "add_auth/sessions/index" }
         format.turbo_stream do

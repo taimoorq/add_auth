@@ -52,6 +52,13 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:
-          bundler-cache: true
+          bundler-cache: false
           ruby-version: "3.4"
+      # The attestation hook loads RubyGems before Bundler. Install into the
+      # normal gem path so both resolve the same default-gem versions.
+      # https://github.com/rubygems/release-gem/issues/28
+      - name: Install fresh release dependencies
+        run: bundle install --jobs 4
+      - name: Verify the attestation preload can activate the release bundle
+        run: ruby -rrubygems/commands/push_command -rbundler/setup -rrake -e 'puts "Release dependency preload passed"'
       - uses: rubygems/release-gem@7f9650160c1a4e7989fdc9855807bdbd421d8b6b # v1

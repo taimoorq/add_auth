@@ -11,7 +11,7 @@ Those links require workspace access. This public checklist stands on its own as
 progress tracking; it does not duplicate the private design. Engineering guidance
 stays only in that workspace's `AGENTS.md`.
 
-Reviewed 2026-09-07. The 0.2.0 source implements the v1
+Reviewed 2026-09-07. The 0.2.1 source implements the v1
 strategy features: password/email/passkey sign-in, hardened sessions, reauthentication,
 credential management, default recovery and strict policy, security notifications,
 challenge adapters and fingerprinted ejection. Core policy, session finalization

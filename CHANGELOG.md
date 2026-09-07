@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 — 2026-09-07
+
+- Install release dependencies into RubyGems' normal gem path so the attestation
+  preload and Bundler resolve the same OpenSSL version. Check that loading order
+  before requesting publishing credentials. Retain OIDC and attestations.
+- The immutable `v0.2.0` tag passed all acceptance checks but did not publish a
+  package because its release action hit an OpenSSL activation conflict.
+  Authentication runtime and feature behavior are unchanged from that candidate.
+
 ## 0.2.0 — 2026-09-07
 
 First integrated 0.2 release for Rails 8.0 and 8.1 hosts on Ruby 3.3, 3.4 and

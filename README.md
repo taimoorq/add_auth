@@ -1,6 +1,6 @@
 # AddAuth
 
-**0.2.0:** password, email-link and passkey sign-in extend
+**0.2.1:** password, email-link and passkey sign-in extend
 Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
@@ -18,7 +18,7 @@ Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** these commands require the published `0.2.0` package.
+**Release availability:** these commands require the published `0.2.1` package.
 If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
 wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
@@ -29,7 +29,7 @@ below before enabling sign-in for users.
 
    ```ruby
    # Gemfile
-   gem "add_auth", "~> 0.2.0"
+   gem "add_auth", "~> 0.2.1"
    ```
 
    Bundler downloads the package from RubyGems and records the resolved

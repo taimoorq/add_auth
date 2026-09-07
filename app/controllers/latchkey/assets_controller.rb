@@ -4,10 +4,15 @@ require "latchkey/rails/ejection"
 
 module Latchkey
   # Fixed gem assets only. This works even in hosts without an asset pipeline.
-  class AssetsController < ActionController::Base
-    # These GET-only routes expose fixed public files, never session data.
-    skip_forgery_protection
-    before_action { response.set_header("Cross-Origin-Resource-Policy", "same-origin") }
+  class AssetsController < ActionController::API
+    # Stateless public files: no cookies, sessions or authenticated response data.
+    before_action do
+      response.set_header("Cross-Origin-Resource-Policy", "same-origin")
+      unless request.get? || request.head?
+        response.set_header("Allow", "GET, HEAD")
+        head :method_not_allowed
+      end
+    end
     def stylesheet
       expires_in 1.hour, public: true
       send_file Rails::Engine.root.join("lib/generators/latchkey/email_link/templates/latchkey.css"),

@@ -26,6 +26,11 @@ require "generators/latchkey/email_tokens/email_tokens_generator"
 
 # Exercise the actual generator; migrations and generated model are the fixture.
 Latchkey::Generators::EmailTokensGenerator.start([], destination_root: Rails.root.to_s, quiet: true)
+# Keep the generated foundation before the checked-in extension migrations.
+# A fresh checkout otherwise stamps it with today's time, after its dependents.
+token_migration = Dir[Rails.root.join("db/migrate/*_create_latchkey_sign_in_tokens.rb")].fetch(0)
+fixture_migration = Rails.root.join("db/migrate/20260906231226_create_latchkey_sign_in_tokens.rb").to_s
+FileUtils.mv(token_migration, fixture_migration) unless token_migration == fixture_migration
 require Rails.root.join("app/models/latchkey_sign_in_token").to_s
 FileUtils.mkdir_p(Rails.root.join("storage"))
 if ENV["LATCHKEY_TEST_DATABASE_URL"]

@@ -81,7 +81,19 @@ RSpec.describe "Passwordless and public Rails hosts", type: :request, database: 
     expect(status.success?).to be(true), output
   end
 
-  it "uses ordinary passwordless models and invalidates address-bound proofs on email change" do
+  it "uses ordinary passwordless models and invalidates address-bound proofs on email change" do |example|
+    # Rails association reflections retain their resolved User class after
+    # RSpec restores a stubbed constant. Isolate this alternate host model so
+    # later requests cannot inherit its passwordless association cache.
+    unless ENV["ADD_AUTH_ISOLATED_HOST_SPEC"] == example.id
+      require "open3"
+      output, status = Open3.capture2e({"ADD_AUTH_ISOLATED_HOST_SPEC" => example.id},
+        RbConfig.ruby, "-S", "bundle", "exec", "rspec", example.id,
+        chdir: File.expand_path("../..", __dir__))
+      expect(status.success?).to be(true), output
+      next
+    end
+
     existing = User.create!(email_address: "passwordless@example.test", password: "unused-fixture-password")
     passwordless = Class.new(ApplicationRecord) do
       self.table_name = "users"

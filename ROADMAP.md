@@ -52,7 +52,7 @@ passwordless-fixture isolation failure is fixed in
 [PR #8](https://github.com/taimoorq/add_auth/pull/8); it is not an open runtime
 defect or a reason by itself to republish 0.2.1.
 
-## Next — prove upgrades and define the 1.0 contract
+## Next — prove upgrades, plan migrations and define the 1.0 contract
 
 - [x] **R3 · Rehearse an upgrade from published 0.2.1.** Start with a populated
       host, active sessions, passkeys, strict accounts, pending mail and customized
@@ -86,10 +86,32 @@ defect or a reason by itself to republish 0.2.1.
       guide and evidence-backed troubleshooting updates before the candidate
       freezes. The current latest-0.x policy remains in
       [SECURITY.md](SECURITY.md).
+- [ ] **R8 · Define Devise migration readiness.** Inventory source versions,
+      modules, extensions and customizations; provide a read-only preflight with
+      supported mappings, prerequisites and actionable blockers. Running Rails 8
+      alone does not establish the authentication contracts AddAuth needs.
+- [ ] **R8 · Provide a path for Rails-aligned Devise apps.** Reuse verified
+      account/session contracts and preserve host customizations while replacing
+      remaining Devise authentication wiring. Prove password compatibility,
+      account restrictions, session/token revocation and safe cutover/rollback.
+- [ ] **R8 · Provide a path for standard or customized Devise apps.** Guide an
+      additive conversion from existing models, identifiers, password storage
+      and controllers to the supported Rails contracts. Preserve account IDs and
+      associations; resolve incompatible hashes, identifier collisions and
+      unsupported module policies before cutover. Include older-runtime
+      prerequisites and host-owned lifecycle replacements where needed.
+- [ ] **R8 · Rehearse and document both migration paths.** Test populated Devise
+      hosts before and after migration, including custom schema, peppered
+      passwords, denied accounts, interrupted conversion and rollback. Verify
+      supported database/runtime and Turbo/no-JS journeys, publish step-by-step
+      guides and prove the destination works with Devise removed.
 
 Each change owns its tests and keeps intermediate releases usable. R3/R4 findings
 feed R5. A patch may address compatible corrections; another 0.x minor is possible
 if integration contracts change. A 0.3 release is not a prerequisite for 1.0.
+R8 is planned after the prepared 0.2.2 correction; its supported source profiles
+and delivery version will be decided during discovery, with public API impact
+resolved before R5 freezes. Devise migration support is not available yet.
 
 ## Delivery — 0.2.2 first, then the proposed 1.0 gate
 
@@ -157,8 +179,8 @@ stay with the host.
 
 - [x] Host password integration and explicit passwordless mode; one Core policy,
       result presenter and atomic session finalizer.
-- [x] Random digested session bearers, bounded legacy adoption, expiry, device
-      listing/pagination, revoke-one/all and host lifecycle invalidation.
+- [x] Random digested session bearers, bounded Rails signed-ID session adoption,
+      expiry, device listing/pagination, revoke-one/all and host lifecycle invalidation.
 - [x] Email links with inert GET/explicit POST confirmation, generic intake,
       resend/replay protection and optional same-browser binding.
 - [x] Discoverable passkeys, conditional sign-in, UV/origin enforcement,

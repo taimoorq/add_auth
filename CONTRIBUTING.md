@@ -119,3 +119,41 @@ Local acceptance does not establish delivery through a host's provider or
 physical/hybrid passkey interoperability. Application maintainers verify those
 conditions in their own deployment. Sidekiq and Redis are test dependencies in
 this optional bundle; they are not AddAuth runtime dependencies.
+
+
+## Published-package upgrade acceptance
+
+From this checkout, fetch the official baseline and run the isolated rehearsal:
+
+```sh
+gem fetch add_auth --version 0.2.1
+ADD_AUTH_BASELINE_GEM="$PWD/add_auth-0.2.1.gem" bundle exec rspec spec/upgrade/published_package.rb
+```
+
+The spec verifies the baseline archive against its recorded registry SHA256,
+installs it in a temporary Rails host, persists synthetic authentication state,
+installs the current built candidate, then reinstalls the baseline. It checks
+pending jobs, revoked/spent authority and preserved ejections. The drift fixture
+is explicitly synthetic. CI runs this command on both Rails lines and every
+supported Ruby. Version equality in an unreleased checkout does not imply identical
+packages; each archive is installed at its own temporary path.
+
+Additional optional operations commands use the same operations bundle:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle exec rspec spec/operations/solid_queue_acceptance.rb
+ADD_AUTH_CACHE_TEST_URL=postgresql://localhost/add_auth_test BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle exec rspec spec/operations/solid_cache_contract.rb
+BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle exec rspec spec/operations/maintenance_profile.rb
+ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test BUNDLE_GEMFILE=gemfiles/operations.gemfile bundle exec rspec spec/operations/maintenance_profile.rb
+```
+
+Use a dedicated local disposable `add_auth_test` database. The cache test creates
+Solid Cache tables there and demonstrates its known missing-row increment race;
+it also checks AddAuth's adapter rejection. A future upstream fix must trigger a
+new compatibility decision instead of silently dropping the regression. Solid
+Queue's test uses separate temporary primary and queue SQLite databases and a
+loopback SMTP sink. Set `ADD_AUTH_OPERATIONS_GEM` to a previously verified archive
+to repeat that queue rehearsal against a published package. Optional Solid gems,
+Sidekiq and Redis remain test dependencies only. Run suites sharing `spec/dummy`
+sequentially; the maintenance profile prints bounded-work counts and local timings,
+not a production capacity claim.

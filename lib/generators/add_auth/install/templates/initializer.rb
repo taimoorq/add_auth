@@ -21,7 +21,9 @@ AddAuth.configure do |config|
   # config.base_url = "https://your-app.example"
   # config.mail_from = "Your app <sign-in@your-app.example>"
   # Configure a durable Active Job adapter and schedule add_auth:deliver_pending.
-  # config.rate_limit_store = Rails.cache # shared, atomic increment in production
+  # Rails.cache is suitable only with shared atomic increments and expiry.
+  # Solid Cache is not suitable; configure a separate counter store:
+  # https://addauthgem.com/production/#rate-limits
   # Each maintenance pass handles at most this many rows per operation/model:
   # config.maintenance.batch_size = 100 # 1..1000
   # History is retained until the host chooses a retention period (seconds):

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "add_auth/rails/rate_limit_cache"
+
 require "uri"
 require "add_auth/rails/stores/sessions"
 require "add_auth/rails/stores/email_tokens"
@@ -186,7 +188,7 @@ module AddAuth
         raise AddAuth::Error, "rate limit store unavailable", cause: nil
       end
 
-      def rate_limit_cache = config.rate_limit_store || ::Rails.cache
+      def rate_limit_cache = RateLimitCache.validate!(config.rate_limit_store || ::Rails.cache)
 
       def maintenance_cache_key = "add_auth:maintenance:v1:#{config.sign_in_token_digest.digest("last-success")}"
 

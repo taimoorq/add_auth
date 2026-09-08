@@ -26,13 +26,16 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Run specs on both supported Rails lines
+      - name: Fetch the published upgrade baseline
+        run: gem fetch add_auth --version 0.2.1
+      - name: Run specs and package upgrades on both supported Rails lines
         run: |
           for rails in 8_0 8_1; do
             export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
             bundle install
             bundle exec rspec
             ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
+            ADD_AUTH_BASELINE_GEM="$GITHUB_WORKSPACE/add_auth-0.2.1.gem" bundle exec rspec spec/upgrade/published_package.rb
           done
       - name: Lint
         run: bundle exec standardrb

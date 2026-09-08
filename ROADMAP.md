@@ -1,246 +1,191 @@
 # Roadmap
 
-AddAuth extends Rails 8's `bin/rails generate authentication` with email-link
-sign-in, passkeys, purpose-bound reauthentication, session hardening and pluggable
-captcha. It reuses the host's accounts and Session model.
+AddAuth extends Rails 8's authentication generator with email-link sign-in,
+passkeys, purpose-bound reauthentication, hardened sessions and pluggable captcha.
+It reuses the host's accounts and Session model.
 
-The canonical design lives in the companion **private** planning workspace:
-[scope](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#14-scope-decision-and-roadmap)
-and [user journeys, contracts and test plan](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#16-integrated-user-journeys-and-implementation-plan).
-Those links require workspace access. This public checklist stands on its own as
-progress tracking; it does not duplicate the private design. Engineering guidance
-stays only in that workspace's `AGENTS.md`.
+**Reviewed 2026-09-07: 0.2.1 is published, and the planned v1 strategy features
+have shipped.** The next work makes adoption, upgrades and the future 1.0 support
+commitment clearer. Milestones below describe priorities, not promised dates or
+versions. See [release status](https://addauthgem.com/release-status/),
+[the changelog](CHANGELOG.md) and [the manual](https://addauthgem.com/).
 
-Reviewed 2026-09-07. The 0.2.1 source implements the v1
-strategy features: password/email/passkey sign-in, hardened sessions, reauthentication,
-credential management, default recovery and strict policy, security notifications,
-challenge adapters and fingerprinted ejection. Core policy, session finalization
-and leased mail delivery are shared by engine and ejected flows.
+**0.2.2 is prepared locally, not published.** It contains the counter-store
+correction and upgrade/operations coverage described below. The owner selected
+this patch before accepting the proposed 1.0 commitment.
 
-The 0.2 release gate uses local real-database, generated-host, browser and
-SMTP/queue/cache acceptance. The final supported matrix is recorded in the
-[canonical evidence ledger](https://github.com/taimoorq/add_auth-workspace/blob/main/docs/authentication-gem-plan.md#20-release-020-execution--2026-09-07).
-Checked feature items mean passing relevant local specs. GitHub's required
-merge/release controls still apply. Hosts verify their own live providers,
-physical authenticators and deployment operations; those checks do not block
-the gem's 0.2 release. Email themes and branding are optional host presentation.
+An unchecked item is remaining work; deferred candidates need a scope decision
+before implementation. Checked features have passing relevant acceptance specs.
+Other completed work requires its applicable verification evidence. Checkmarks
+can describe tested local work; release/publication remains a separate gate. Detailed
+design and decision records remain in the companion private planning workspace;
+this public checklist is derived from its section 14 and stands on its own.
 
-Generated pages use shared HTML/Turbo partials. Password/email paths support
-ordinary no-JS navigation when permitted by policy; passkeys require browser
-JavaScript, and a configured captcha may also require it. Strict policy must never
-be weakened to simulate no-JS parity.
+## Now — maintain 0.2 and learn from adoption
 
-## 0. Project foundations
+- [ ] **R1 · Resolve the outstanding dependency update.** Review
+      [actions/checkout PR #1](https://github.com/taimoorq/add_auth/pull/1) against
+      current master. Its old failed Ruby checks need current evidence; retain
+      immutable action pins and all merge/release protections. Record a merge,
+      replacement or reasoned deferral.
+- [x] **R1 · Complete the 2026-09-07 currency review.** Review Rails/Ruby support,
+      authentication APIs, WebAuthn, advisories and the competitive landscape
+      before the next version bump; repeat the standing review at least quarterly.
+      Floors remain Ruby 3.3 / Rails 8.0; current audits are clear. Follow Rails-
+      native password hashing when the supported API permits it. Future reviews
+      remain an ongoing maintenance responsibility.
+- [x] **R2 · Complete a bounded first-adopter feedback review.** Official-package
+      local integration already passes. Collect installation, sign-in/recovery,
+      customization and operational friction; give each finding a gem fix,
+      documentation improvement, host-owned resolution or explicit deferral.
+      The review dispositions existing passwordless/management fixes, host-owned
+      onboarding/roles/mail branding and the new upgrade/operations guidance.
+      Stock and synthetic host regressions remain required for reusable changes.
+- [x] **R2 · Improve onboarding from observed friction.** Update existing
+      quickstart, doctor and troubleshooting guidance with exact prerequisites,
+      observable success and recovery steps. Keep the public manual tied to the
+      published package. Upgrade, compatibility, cache and ejection guidance is
+      prepared locally; build and browser checks pass. Publication is pending.
 
-- [x] Gemspec with a capability-derived Rails floor (`>= 8.0`, the release
-      that shipped the authentication generator) and a security-patch-derived
-      Ruby floor (`>= 3.3.0`), not just whatever the newest Rails tolerates.
-- [x] MIT license, Code of Conduct, Security policy (`SECURITY.md`).
-- [x] RSpec test setup (`.rspec`, `spec/spec_helper.rb`).
-- [x] `standard` for formatting/linting.
-- [x] CI (GitHub Actions): RSpec + Standard across the Ruby support matrix,
-      plus a `bundler-audit` job.
-- [x] Dependabot, grouped by ecosystem, with the Rails family grouped
-      together — the concrete mechanism behind the "stay current" mandate in
-      the workspace's `AGENTS.md`.
-- [x] RubyGems release workflow configured for [Trusted
-      Publishing](https://guides.rubygems.org/trusted-publishing/) (OIDC from
-      GitHub Actions) instead of a long-lived API key, gated behind
-      `rubygems_mfa_required` and `allowed_push_host`.
-- [x] `bin/setup` / `bin/console` dev scripts.
-- [x] First successful tagged release published via the Trusted Publishing
-      workflow: [0.2.1 on RubyGems](https://rubygems.org/gems/add_auth/versions/0.2.1).
+The current master CI and CodeQL runs pass. The post-publication
+passwordless-fixture isolation failure is fixed in
+[PR #8](https://github.com/taimoorq/add_auth/pull/8); it is not an open runtime
+defect or a reason by itself to republish 0.2.1.
 
-## 1. Core primitives
+## Next — prove upgrades and define the 1.0 contract
 
-- [x] `AddAuth::Result` — closed success/failure type for auth outcomes.
-- [x] `AddAuth::Configuration` / `AddAuth.configure`.
-- [x] Challenge adapter contract (`AddAuth::Core::Challenge::Base`) with the
-      three-state result (success / rejected / unavailable).
-- [x] `Challenge::Null` (default, always succeeds) and `Challenge::Test`
-      (configurable, for specs) adapters.
-- [x] Purpose-separated HMAC digests with explicit strong key material,
-      real Rails key derivation, override tests and a framework-free Core check.
+- [x] **R3 · Rehearse an upgrade from published 0.2.1.** Start with a populated
+      host, active sessions, passkeys, strict accounts, pending mail and customized
+      ejected files. Upgrade to the candidate and verify data/policy preservation,
+      migration repeatability, doctor diffs, reviewed baseline acceptance,
+      worker compatibility and safe rollback or explicit revocation. Keep
+      fresh-install and before/after-ejection coverage. The checksum-pinned
+      baseline/candidate/rollback test passes on all six Ruby/Rails combinations;
+      CI now includes the same rehearsal.
+- [x] **R4 · Validate the Rails-default operations path.** Exercise Solid Queue
+      restart/enqueue failure and same-intent mail retry locally. Determine
+      whether Solid Cache meets atomic rate-limit increment/TTL requirements;
+      document a tested separate store if needed. Publish only verified adapter
+      support. Solid Queue 1.7.0 passes with a separate queue database. Solid
+      Cache 1.0.10 loses concurrent first increments on PostgreSQL; the pending
+      fix rejects it for abuse counters and documents a separate Redis store.
+- [x] **R4 · Measure bounded maintenance and recovery.** Record workload,
+      query counts, backlog drain and latency for session pages, outbox retries
+      and cleanup. Use those measurements to explain batch sizing, retention,
+      alerts and recovery procedures. SQLite/PostgreSQL rehearsals retain 5,000
+      live sessions while draining 1,200 expired rows in twelve batches of 100;
+      session listing uses two SELECTs and at most 52 loaded Session records.
+- [x] **R5 · Inventory the proposed stable public surface.** Name supported configuration,
+      Core/host hooks and Results, routes, generators/ejection metadata, testing
+      helpers and redacted events. Distinguish internal APIs and document
+      compatibility, deprecation and migration rules. The current integration
+      reference and proposed contract are prepared; owner acceptance of the
+      1.0 commitment remains the separate item below.
+- [ ] **R5 · Set the 1.0 support policy.** Specify supported runtime/database
+      combinations and security-supported release lines. Publish an upgrade
+      guide and evidence-backed troubleshooting updates before the candidate
+      freezes. The current latest-0.x policy remains in
+      [SECURITY.md](SECURITY.md).
 
-## 2. Shared contracts and a real host harness — slices A1/A2
+Each change owns its tests and keeps intermediate releases usable. R3/R4 findings
+feed R5. A patch may address compatible corrections; another 0.x minor is possible
+if integration contracts change. A 0.3 release is not a prerequisite for 1.0.
 
-- [x] One Core policy for eligibility, purpose, proof strength and freshness;
-      one session finalizer and public result presenter across all methods.
-- [x] Ordinary email-token store and encrypted delivery-intent contracts,
-      shared examples against fake and real SQLite/PostgreSQL adapters, with clock/digest
-      injection, replay/race/rollback/address-binding coverage.
-- [x] Passkey/recovery proof and host lifecycle contracts, with actual WebAuthn
-      cryptography, rollback and concurrency on SQLite and PostgreSQL.
-- [x] Boot `spec/dummy` through RSpec; replace generated test stubs with
-      password sign-in/reset/sign-out requests and real database coverage.
-- [x] Generate and boot Rails 8.0/8.1 hosts; exercise the persistence
-      generator and preserve host customizations. CI covers both Rails lines
-      on Ruby 3.3, 3.4 and 4.0. Commands are in CONTRIBUTING.md.
-- [x] Browser/virtual-authenticator harness with the passkey slice.
+## Delivery — 0.2.2 first, then the proposed 1.0 gate
 
-## 3. Adopt the host's sessions and password flow — slice B, U1/U8
+- [ ] **R6 · Deliver the prepared 0.2.2 correction.** Commit and review the
+      tested changes, pass current required GitHub checks, publish through
+      protected OIDC, verify the registry package in a fresh host and publish
+      the matching manual. Preserve the existing latest-0.x support policy.
 
-- [x] Inert `add_auth:install` configuration plus additive `session_upgrade`
-      migration and shared lifecycle hooks; repeat generation preserves edits.
-- [x] Bounded signed-ID cookie transition to random digested bearers, with
-      real signature/tamper, race, cutoff and revocation tests.
-- [x] Password/reset normalization and routes preserved; password/address
-      invalidation and account deletion integrated. Hosts supply eligibility.
-- [x] Absolute/idle expiry, protected cookies, fresh session IDs and safe local
-      return destinations for implemented password/email flows.
-- [x] Current-session sign-out revokes its bearer and clears browser state.
-- [x] Session list and revoke-one, including next-request rejection in another
-      browser and cache/back-safe authenticated-page handling.
-- [x] Sign-out-everywhere, guarded by fresh allowed proof and covering every
-      active browser, with old bearers rejected on their next request.
-- [x] Account-scoped cursor pages and bounded maintenance, with optional history
-      retention, active-lease protection and completed-pass counts.
-- [x] Explicit passwordless mode, guarded stock entry routes and authenticated
-      account-management pages in hosts that also serve public pages.
+- [ ] **R6 · Finish the adoption and compatibility review.** R1–R5 findings are
+      completed or explicitly dispositioned, the supported API is accepted, and
+      the published-package upgrade and documented operations profile pass.
+- [ ] **R6 · Verify the exact candidate.** Preserve the complete local
+      Ruby/Rails, SQLite/PostgreSQL, generated/ejected browser and operations
+      acceptance; resolve release-blocking security and upgrade findings.
+      Recheck dependency currency and pass required GitHub CI/CodeQL controls.
+- [ ] **R6 · Publish and verify 1.0.** Release notes, migration/support guidance,
+      protected OIDC publication, registry checksum/package verification, fresh
+      installation and the public manual all identify the same accepted release.
 
-## 4. Complete email-link sign-in — slice C, U2
+The owner accepted local testing as the gem release gate. Production migration,
+a fixed number of adopters, live captcha accounts, physical devices and branded
+emails are not additional gem release requirements. Hosts remain responsible for
+their actual providers, proxy/TLS, trusted recovery addresses and support process.
 
-- [x] Internal `EmailLink#issue`/`#consume` lifecycle: atomic replacement and
-      session persistence, one-use proof, account/address eligibility rechecks,
-      expiring encrypted delivery handoff and tested concurrent use.
-- [x] Wire the lifecycle to the hardened session finalizer and uniform
-      asynchronous/rate-limited public intake.
-- [x] Additive token model/store generator and protected pending-delivery
-      payload, cleared on consumption/revocation; no Session schema changes.
-- [x] Encrypted request jobs, idempotent issuance, leased mail delivery,
-      retry/cleanup sweep and delivered-link-to-browser integration.
-- [x] Durable security notifications share the delivery lease/retry/cancellation
-      contract and recover interrupted queue handoffs.
-- [x] Local SMTP, durable queue restart/retry and cross-process shared-cache
-      acceptance. Live transport and monitoring validation belongs to each host.
-- [x] Shared IP + keyed identifier rate policy, normalization and generic
-      request/resend responses for unknown, disabled and throttled accounts.
-- [x] Request → check-email → inert GET confirmation → explicit POST consume
-      → session; masked account confirmation and deliberate account switching.
-- [x] Resend limits, newest-link guidance, expired/used-link recovery and
-      cross-device sign-in by default.
-- [x] Optional same-browser binding, including delivered links, wrong-browser denial,
-      Turbo/no-JS browsers and generated/ejected hosts.
-- [x] Real DB concurrency and delivered-mail-to-session specs, plus HTML,
-      Turbo and no-JS request/system coverage for the complete flow.
+## Ongoing — broader compatibility evidence
 
-- [x] Basic scoped CSS, semantic class overrides for host Bootstrap/Tailwind
-      builds, stylesheet opt-out and view ejection with custom-file preservation.
+- [ ] **R7 · Record browser, device and accessibility results as available.**
+      Track exact Safari/Firefox/mobile/hybrid authenticator and
+      assistive-technology environments. Add local regressions for reproducible
+      defects and document limits.
+- [ ] **R7 · Record deployment-provider results as available.** Capture actual
+      provider and failure/recovery evidence without treating local protocol
+      fixtures as live-service certification.
 
-## 5. Reauthentication and recovery policy — slice D, U6/U7
+These broaden host deployment confidence; they do not reopen completed 0.2
+acceptance or silently add hardware/service gates to 1.0.
 
-- [x] Core purpose/freshness evaluator with account/session binding, generic
-      elevation failures and passkey UV requirements.
-- [x] Additive session elevation metadata and bearer-rotation finalizer for a
-      previously authorized grant, now wired to public reauthentication routes.
-- [x] Host reauthentication adapters persist purpose-bound grants and rotate the
-      existing session's bearer after password/email/passkey verification.
-- [x] Password/email reauthentication adapters share policy and presentation;
-      email step-up is bound to the initiating browser/session/purpose.
-- [x] Sensitive-action return goes to a safe confirmation page; final mutation
-      rechecks authorization/grant/target and never automatically replays a POST.
-- [x] Default email recovery with explicit recovery purpose, replacement grant,
-      security notifications and post-recovery session/proof invalidation.
-- [x] Stricter opt-in policy enforced across sign-in, fallback, credential
-      management, password reset and policy changes; no hidden weaker route.
-- [x] Tests for fresh-but-insufficient proof, wrong account/session/purpose,
-      expiry, lost response, cancellation and attempted policy bypass.
+## Later — evaluate demand before adding scope
 
-## 6. Complete passkeys and credential management — slice E, U3–U7
+These are candidates, not promised features or a committed “v2” release. A
+compatible extension could ship in 1.x after an explicit scope decision.
 
-- [x] Registration with discoverable credentials, server-enforced user
-      verification and transaction binding to an existing account.
-- [x] Discoverable sign-in with credential/userHandle ownership checks;
-      explicit and conditional-autofill UI share the same verification path.
-- [x] Native browser support for another device/security key, neutral cancel,
-      understandable retry/fallback and strict-policy unavailable states.
-- [x] First-passkey bootstrap and additional-passkey enrollment require
-      appropriate fresh proof. The optional post-login invitation is a host product
-      choice; v1 supplies the authenticated `/passkeys` entry point.
-- [x] Credential list, rename, remove, notifications and atomic last-usable-method
-      checks; default/strict recovery works with enrollment and lost-device flows.
-- [x] Correct sign-counter anomaly/backup-flag handling, with atomic counter
-      updates and tests for zero, equal, increasing and decreasing counters.
-- [x] Exact origin/RP policy, single-use server transactions, one shared codec,
-      payload bounds and cleanup of pending browser ceremonies.
-- [x] Virtual-authenticator and real-store coverage of success, UV/signature/
-      origin/ownership failures, replay, races, management and recovery.
+- [ ] **F1 · Recovery codes.** First expansion candidate to assess when adopters
+      need recovery beyond trusted email or strict host support. Design single
+      use, regeneration/revocation, abuse controls and the recovery-policy boundary
+      before implementation; codes must not silently satisfy passkey-only purposes.
+- [ ] **F2 · Rails-native password hashing integration.** Recheck available Rails
+      support and real adopter needs before adding an adapter or changing a default.
+- [ ] **F3 · Account lifecycle helpers.** Evaluate registration, confirmation,
+      reset, lockout and password policy individually against repeated needs.
+      Current host password integration already ships.
+- [ ] **F4 · Multiple realms.** Require a concrete identity/session-isolation need
+      and migration design before adding models, cookies or routing APIs.
+- [ ] **F4 · API/token authentication.** Decide separately from browser sessions
+      and realms; require a real non-browser client use case.
+- [ ] **F5 · Standalone test helpers or challenge adapters.** Extract only if
+      independent demand and maintenance capacity justify another package;
+      retain one implementation per concern.
 
-## 7. Challenge adapters and accessible failure paths — slice F, U9
+Social/OIDC, SMS/TOTP and enterprise or cross-origin WebAuthn are outside the
+current roadmap. Account roles, invitations, authorization and email branding
+stay with the host.
 
-- [x] Turnstile adapter with hostname/action checks, provider-owned lifetime,
-      bounded HTTPS timeouts and safe no-retry handling for single-use tokens.
-- [x] reCAPTCHA v2/v3 adapters respecting their different verification fields
-      and configured score/action requirements where applicable.
-- [x] Shared success/rejected/unavailable behavior, fail-closed default and
-      observable explicit fail-open policy; no implicit bypass without JS.
-- [x] Retry/outage messages, preserved input, provider protocol fixtures and no
-      live-provider dependency in routine specs.
-- [x] Local keyboard/focus/status, virtual-authenticator and provider-contract
-      browser coverage in bundled and ejected UI. Broader browser/device and
-      assistive-technology verification remains a host deployment responsibility.
+## Shipped — 0.2.1 baseline
 
-## 8. Generators, ejection and integrated acceptance — slice G
+- [x] Host password integration and explicit passwordless mode; one Core policy,
+      result presenter and atomic session finalizer.
+- [x] Random digested session bearers, bounded legacy adoption, expiry, device
+      listing/pagination, revoke-one/all and host lifecycle invalidation.
+- [x] Email links with inert GET/explicit POST confirmation, generic intake,
+      resend/replay protection and optional same-browser binding.
+- [x] Discoverable passkeys, conditional sign-in, UV/origin enforcement,
+      credential management, counter checks and atomic last-method protection.
+- [x] Purpose-bound password/email/passkey reauthentication, trusted-address
+      recovery, strict opt-in policy and protected host mutations.
+- [x] Durable encrypted mail/notification intents, leases, retries,
+      cancellation and bounded maintenance with optional retention.
+- [x] Turnstile and reCAPTCHA v2/v3 with distinct rejected/unavailable outcomes,
+      bounded verification and explicit outage policy.
+- [x] Additive generators, fingerprinted view/controller/JavaScript/mail ejection,
+      drift diagnostics, doctor and framework-neutral testing helpers.
+- [x] Shared HTML/Turbo pages, permitted no-JS alternatives, browser
+      capability detection and cache/CSRF/privacy protections.
+- [x] Local supported Ruby 3.3/3.4/4.0 × Rails 8.0/8.1 matrix, SQLite/PostgreSQL
+      concurrency, generated/ejected browser and SMTP/queue/cache acceptance.
+- [x] RSpec, Standard, dependency audit, CodeQL, protected repository controls
+      and pinned-action Trusted Publishing.
+- [x] [Published 0.2.1](https://rubygems.org/gems/add_auth/versions/0.2.1),
+      verified registry installation and the maintained public manual.
 
-- [x] `add_auth:install` writes inert configuration; session/email feature
-      generators add reviewable wiring and preserve edits on repeat runs.
-- [x] `add_auth:views`, `add_auth:controllers`, `add_auth:javascript` and
-      `add_auth:mailer_views` reuse the same Core policy, presenter and templates.
-- [x] `add_auth:challenge` writes environment-keyed Turnstile/reCAPTCHA config,
-      adds the fixed challenge route and preserves an existing initializer.
-- [x] `add_auth:doctor` checks deployment origins, cookies/session metadata,
-      delivery, migrations and challenge policy/routes.
-- [x] `add_auth:doctor` checks recovery policy and generated-file drift.
-- [x] Every generated flow exercised before and after ejection, with Turbo
-      Drive/Frames/Streams, ordinary HTML, no-JS alternatives and strict denial.
-- [x] Auth-page cache/referrer protections, redacted app/job telemetry,
-      CSRF, safe redirects and correct success/failure HTTP contracts.
-- [x] RSpec strategy/store shared examples and host-facing test helpers,
-      including virtual authenticator lifecycle and delivered-link extraction.
-- [x] Full RSpec, Standard and dependency audit pass on supported local matrices;
-      README/roadmap distinguish working development APIs from release gates.
-- [x] Exact-commit remote CI/CodeQL and required repository security checks;
-      [public documentation](https://addauthgem.com/release-status/) now identifies
-      the verified RubyGems release and installation commands.
+Passkeys require JavaScript and a capable browser. Configured captcha may also
+require JavaScript; strict policy is never weakened to imitate no-JS parity.
+The immutable 0.1.0/0.2.0 tags did not publish packages; 0.2.1 is the first
+successful package release. Historical details remain in the changelog and
+release records.
 
-## 9. Release readiness
-
-- [x] README rewritten from skeleton status to verified usage and migration
-      instructions, linking to maintained public API docs as they ship.
-- [x] Security policy updated for shipped strategies, recovery limits and
-      supported versions; redacted events and incident/rollback guidance documented.
-- [x] CHANGELOG entries and successful Trusted Publishing release. The 0.2.1
-      registry checksum and all 120 package files match the reviewed candidate;
-      the downloaded gem passes a fresh local Rails installation.
-- [x] Local enabled-journey, delivery-retry/restart, expiry and transaction rollback
-      evidence. Record 0.2 operational defaults and host deployment responsibilities.
-- [x] Audit adopter-requested changes against stock Rails behavior; keep app roles,
-      invitations, authorization and email themes in the host.
-- [ ] `v1.0.0` only after the integrated acceptance gates pass.
-
-## v2 — reassess after v1 usage
-
-- [ ] AddAuth-owned password registration/reset, confirmation, lockout and
-      password policy. Existing host password integration is part of v1.
-- [ ] Password-hashing adapter seam, following the canonical cryptography
-      policy and Rails support available at implementation time.
-- [ ] Recovery codes; they are not an implied fallback for v1 strict policy.
-- [ ] Multiple realms/routing scopes.
-
-## Decisions before they become dependencies
-
-Owner and deadline details remain in the canonical plan's section 16.
-
-- [x] Review the 0.2 configuration and public integration contract. The runtime
-      uses Rails-generator User/Session conventions; authentication models must
-      share one database connection pool and cross-pool writes are rejected.
-- [x] Review lifetime/resend/legacy-bridge defaults and local failure evidence;
-      retention is opt-in, and key changes require a host deployment plan.
-- [x] Framework-neutral mail and virtual-authenticator helpers; no
-      Minitest-specific integration DSL. AddAuth's own suite stays RSpec.
-- [ ] Revisit API/token authentication after v1; outside current scope.
-
-## Potential standalone libraries
-
-- [ ] Virtual-authenticator test helpers.
-- [ ] Challenge adapter contract and its three-state result.
+For application setup, start with the [quickstart](https://addauthgem.com/quickstart/).
+Report bugs or adoption feedback through [public issues](https://github.com/taimoorq/add_auth/issues);
+use [private vulnerability reporting](SECURITY.md) for security concerns.

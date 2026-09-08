@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "add_auth/rails/ejection"
+require "add_auth/rails/rate_limit_cache"
 
 module AddAuth
   module Rails
@@ -45,7 +46,9 @@ module AddAuth
           end
           check("Configure valid session timeouts and digest adapters") { Runtime.sessions }
           cache = config.rate_limit_store || ::Rails.cache
+          check(RateLimitCache::INCOMPATIBLE) { RateLimitCache.validate!(cache) }
           check("Configure an atomic rate-limit cache") do
+            RateLimitCache.validate!(cache)
             key = "add_auth:doctor:#{SecureRandom.hex(16)}"
             begin
               cache.increment(key, 1, expires_in: 30, initial: 0) == 1 && cache.increment(key, 1, expires_in: 30, initial: 0) == 2

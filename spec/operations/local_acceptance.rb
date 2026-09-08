@@ -8,6 +8,7 @@ require "tmpdir"
 require "open3"
 require "redis"
 require "sidekiq/api"
+require_relative "../support/local_smtp"
 
 RSpec.describe "Local operational acceptance", database: true do
   def eventually
@@ -43,7 +44,7 @@ RSpec.describe "Local operational acceptance", database: true do
 
   def start_worker
     @worker_pid = Process.spawn({"ADD_AUTH_LOCAL_REDIS_PORT" => @redis_port.to_s,
-                                "ADD_AUTH_LOCAL_SMTP_PORT" => @smtp.addr[1].to_s},
+                                "ADD_AUTH_LOCAL_SMTP_PORT" => @smtp.port.to_s},
       RbConfig.ruby, Gem.bin_path("sidekiq", "sidekiq"), "-r", File.expand_path("worker.rb", __dir__),
       "-e", "test", "-c", "1", "-q", "default", "-t", "2",
       out: File.join(@directory, "worker.log"), err: [:child, :out])
@@ -61,42 +62,8 @@ RSpec.describe "Local operational acceptance", database: true do
       queue_config = Sidekiq::Config.new
       queue_config.redis = {url: @url}
       pool = queue_config.redis_pool
-      @smtp = TCPServer.new("127.0.0.1", 0)
-      @messages, @attempts = Queue.new, Queue.new
-      @reject_next = false
-      @smtp_thread = Thread.new do
-        loop do
-          client = @smtp.accept
-          client.write("220 localhost ESMTP\r\n")
-          while (line = client.gets)
-            case line
-            when /\AEHLO/, /\AHELO/ then client.write("250 localhost\r\n")
-            when /\AMAIL/, /\ARCPT/, /\ARSET/ then client.write("250 OK\r\n")
-            when /\ADATA/
-              client.write("354 Send message\r\n")
-              body = +""
-              while (part = client.gets) && part != ".\r\n"
-                body << part
-              end
-              @attempts << true
-              if @reject_next
-                @reject_next = false
-                client.write("450 Temporary local test failure\r\n")
-              else
-                @messages << body
-                client.write("250 Accepted locally\r\n")
-              end
-            when /\AQUIT/
-              client.write("221 Goodbye\r\n")
-              break
-            else client.write("250 OK\r\n")
-            end
-          end
-          client.close
-        end
-      rescue IOError, Errno::EBADF
-        nil
-      end
+      @smtp = LocalSMTP.new
+      @messages, @attempts = @smtp.messages, @smtp.attempts
       Sidekiq::Client.via(pool) { example.run }
     ensure
       ActiveJob::Base.queue_adapter = :test
@@ -104,8 +71,6 @@ RSpec.describe "Local operational acceptance", database: true do
       stop_process(@redis_pid)
       pool&.shutdown(&:close)
       @smtp&.close
-      @smtp_thread&.kill
-      @smtp_thread&.join
       @worker_pid = @redis_pid = nil
     end
   end
@@ -140,7 +105,7 @@ RSpec.describe "Local operational acceptance", database: true do
     @redis_pid = nil
     start_redis
     expect(Sidekiq::Queue.new.size).to eq(1)
-    @reject_next = true
+    @smtp.reject_next = true
     start_worker
     eventually { @attempts.size >= 1 }
     eventually { record.reload.delivered_at.present? }

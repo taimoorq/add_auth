@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.2 — 2026-09-08
+
+- Reject Solid Cache as an authentication rate-limit store: simultaneous first
+  increments can be lost. Runtime fails closed and doctor explains how to
+  configure a separate atomic store. Solid Queue and ordinary application
+  caching remain independent choices. No schema, cookie or job-format change.
+- Add checksum-pinned upgrades from the published 0.2.1 package to the candidate
+  and back, including persisted authority, pending delivery and customized
+  ejections; run this acceptance on every supported Ruby/Rails CI combination.
+- Verify Solid Queue with a separate queue database, demonstrate Solid Cache
+  counter unsuitability on PostgreSQL, and measure bounded maintenance.
+- Refresh immutable checkout action pins to 7.0.1 and add upgrade/compatibility
+  guidance. See the upgrade guide before changing a deployed bundle.
+
 ## 0.2.1 — 2026-09-07
 
 - Install release dependencies into RubyGems' normal gem path so the attestation

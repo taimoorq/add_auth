@@ -27,6 +27,7 @@ RSpec.describe "Passkey cleanup diagnostics", database: true do
   it "requires a recent completed sweep in production and notices a stalled schedule" do
     allow(Rails.env).to receive(:production?).and_return(true)
     now = Time.now
+    allow(Time).to receive(:now).and_return(now)
     expect(cleanup_problem).not_to be_empty
     runtime.record_maintenance
     expect(cleanup_problem).to be_empty

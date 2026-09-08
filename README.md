@@ -101,11 +101,17 @@ generators again later -- they won't overwrite changes you've already made.
 AddAuth.configure do |config|
   config.base_url = "https://accounts.example.com"
   config.mail_from = "Accounts <sign-in@example.com>"
-  config.rate_limit_store = Rails.cache
+  config.rate_limit_store = ActiveSupport::Cache::RedisCacheStore.new(
+    url: ENV.fetch("AUTH_REDIS_URL"), namespace: "add_auth"
+  )
   # Only let certain accounts sign in, e.g. skip unconfirmed or banned users:
   # config.eligible = ->(user) { user.confirmed? && !user.disabled? }
 end
 ```
+
+For this example, add `gem "redis", "~> 5.4"` to the host Gemfile, run
+`bundle install`, and configure `AUTH_REDIS_URL` for every web/worker/scheduler
+process. Keep their namespace identical.
 
 Before real users touch this, make sure of three things:
 
@@ -115,9 +121,11 @@ Before real users touch this, make sure of three things:
   background job, so use a real Active Job backend like Sidekiq or Solid
   Queue -- not Rails' default in-memory one, which forgets everything on
   deploy.
-- **Your cache is shared across servers**, e.g. Redis, Memcached or Solid
-  Cache -- not each server's own memory. Otherwise sign-in rate limits only
-  apply per-server instead of across your whole app.
+- **Abuse counters are shared and atomic**, including the first increment and
+  expiry under concurrent requests. RedisCacheStore has local acceptance. Solid
+  Cache is unsuitable: its absent-row increment can lose concurrent requests.
+  Keep application caching separate from `rate_limit_store`; local MemoryStore
+  is for a single-process trial. Other adapters require their own atomic/TTL proof.
 
 Then schedule this to run at least once a minute, however you run scheduled
 jobs (cron, `whenever`, your platform's scheduler):
@@ -477,6 +485,13 @@ The latter removes the virtual authenticator even if the block raises; install
 Selenium in the host test bundle. AddAuth itself uses RSpec.
 
 ## Operations and rollback
+
+See the [persisted-host upgrade guide](https://addauthgem.com/upgrading/) and
+[integration boundaries](https://addauthgem.com/compatibility/) before changing
+a deployed bundle. The published 0.2.1 doctor cannot detect Solid Cache's
+concurrent-initialization race; 0.2.2 rejects that known
+incompatible adapter at runtime and reports a separate-store remedy in doctor.
+
 
 Run doctor after migrations and template upgrades. Expand schemas before enabling
 features; generators preserve existing sessions and credentials. Keep the new

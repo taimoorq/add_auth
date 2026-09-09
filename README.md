@@ -1,6 +1,6 @@
 # AddAuth
 
-**0.2.1:** password, email-link and passkey sign-in extend
+**0.3.0:** password, email-link and passkey sign-in extend
 Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
@@ -8,6 +8,11 @@ strict policy. Turnstile and reCAPTCHA integrations are available. See
 
 AddAuth builds on top of Rails 8's built-in login system instead of
 replacing it -- it keeps using your existing `User` and `Session` models.
+
+Version 0.3.0 adds optional account lifecycle, bounded Devise migration,
+provider-library integration and finite Android/iOS sessions. See the
+[migration guide](https://addauthgem.com/migrating-from-devise/) before changing
+an existing Devise app; do not run the Rails generator over its custom files.
 
 Read the [documentation](https://addauthgem.com) for setup guides, configuration
 reference and troubleshooting.
@@ -18,18 +23,18 @@ Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** these commands require the published `0.2.1` package.
+**Release availability:** these commands require the published `0.3.0` package.
 If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
 wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
 below before enabling sign-in for users.
 
 1. Keep `source "https://rubygems.org"` in your app’s Gemfile and add the
-   0.2 release line:
+   0.3 release line:
 
    ```ruby
    # Gemfile
-   gem "add_auth", "~> 0.2.1"
+   gem "add_auth", "~> 0.3.0"
    ```
 
    Bundler downloads the package from RubyGems and records the resolved
@@ -39,8 +44,8 @@ below before enabling sign-in for users.
    bundle install
    ```
 
-2. If your app doesn't already have Rails' built-in login system, add it
-   first:
+2. For a fresh app without an existing authentication system, generate
+   Rails' built-in login system:
 
    ```sh
    bin/rails generate authentication
@@ -533,14 +538,33 @@ or recovery procedures work in production.
 
 ## Scope
 
-AddAuth 0.2 implements password/email/passkey sign-in, session
-adoption and management, purpose-bound verification, passkey recovery and
-strict account policy, durable security mail, and challenge adapters. Account
-provisioning, address confirmation and password reset remain host responsibilities.
-Release acceptance uses local real-database, generated-host, browser and
-SMTP/queue/cache tests. Hosts verify their own live providers and supported
-physical devices before deployment. Recovery codes and AddAuth-owned password
-policy remain deferred.
+AddAuth 0.3 implements password/email/passkey sign-in, session adoption and
+management, purpose-bound verification, passkey recovery and strict account
+policy, durable security mail and challenge adapters. Optional account lifecycle
+adds registration, confirmation/reconfirmation, password reset, lock/unlock and
+account changes. Hosts retain account eligibility, resource authorization and
+provider registrations.
+
+## Optional integrations in 0.3.0
+
+Enable bounded [Devise migration](https://addauthgem.com/migrating-from-devise/),
+[account lifecycle](https://addauthgem.com/account-lifecycle/),
+[provider sign-in](https://addauthgem.com/omniauth/) and
+[Android/iOS sessions](https://addauthgem.com/mobile-authentication/) independently.
+Provider protocol handling stays with maintained libraries. Native sessions use
+finite expiry; the verified profile is 30 days absolute and 14 days idle, with
+fresh sign-in after expiry. Refresh-token families are not included.
+
+Migration evidence covers the documented Devise 5.0.4 source profiles, including
+integer and UUID accounts; it does not establish universal Devise-module parity.
+Preserve current credentials and revocations during cutover and compatible
+rollback. Follow the migration guide before removing Devise or retiring columns.
+
+Release acceptance uses local real-database, generated-host, browser,
+SMTP/queue/cache and native-consumer tests. Hosts verify their own live providers
+and supported physical devices before deployment. Recovery codes and multiple
+realms remain deferred. See [ROADMAP.md](ROADMAP.md) for scope and progress, and
+[CONTRIBUTING.md](CONTRIBUTING.md) for synthetic acceptance commands.
 
 ## Roadmap
 

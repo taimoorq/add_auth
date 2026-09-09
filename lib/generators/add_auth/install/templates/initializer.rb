@@ -4,6 +4,10 @@ AddAuth.configure do |config|
   # routes remain guarded; the host owns password reset and account provisioning.
   # config.passwords_enabled = true
 
+  # Ordinary Rails HTML navigation, including hosts without Hotwire:
+  # config.turbo_enabled = false
+  # Passkeys/captcha still use scoped gem JavaScript; no host JS build is needed.
+
   # BEGIN add_auth session
   # config.session.enabled = true
   # END add_auth session

@@ -5,7 +5,7 @@ module AddAuth
     # Evidence is issued by a trusted verifier, never deserialized from a client.
     # A grant retains that verifier's current policy and the proof's original age.
     class StepUp
-      METHODS = %i[password email_link passkey].freeze
+      METHODS = %i[password email_link passkey external_identity].freeze
 
       class Evidence
         attr_reader :user_id, :session_id, :method, :verified_at, :credential_id,
@@ -26,6 +26,15 @@ module AddAuth
         end
 
         def inspect = "#<AddAuth::Core::StepUp::Evidence [FILTERED]>"
+      end
+
+      class ExternalEvidence < Evidence
+        attr_reader :purpose
+        def initialize(purpose:, **attributes)
+          @purpose = purpose.to_sym
+          super(**attributes)
+        end
+        private_class_method :new
       end
 
       class Grant
@@ -117,6 +126,9 @@ module AddAuth
         return false if rule.require_passkey && !evidence.strong?
         return false unless evidence.session_digest.is_a?(String) && !evidence.session_digest.empty?
         return false if evidence.method == :passkey && !evidence.strong?
+        if evidence.method == :external_identity
+          return false unless evidence.is_a?(ExternalEvidence) && evidence.purpose == purpose.to_sym
+        end
         if evidence.method == :password
           return false unless evidence.credential_version.is_a?(String) && !evidence.credential_version.empty?
           return false unless user.respond_to?(:password_digest) && password_version(user) == evidence.credential_version

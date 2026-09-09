@@ -1,0 +1,16 @@
+<% title = {"confirm" => "Confirm this email address", "reset_password" => "Choose a new password", "unlock" => "Unlock this account"}.fetch(@purpose) %>
+<% content_for :title, title %>
+<h1 id="add_auth-title"><%= title %></h1>
+<p class="<%= add_auth_class(:muted) %>">Use the button below to complete your request. You’ll sign in afterward.</p>
+<% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
+<%= form_with url: "/account/proofs/#{@purpose}", data: {turbo_frame: "_top"} do |form| %>
+  <%= form.hidden_field :token, value: (params[:token] if params[:token].is_a?(String)) %>
+  <% if @purpose == "reset_password" %>
+    <div class="<%= add_auth_class(:field) %>">
+      <%= form.label :password, "New password" %>
+      <%= form.password_field :password, required: true, autocomplete: "new-password", class: add_auth_class(:input) %>
+    </div>
+  <% end %>
+  <%= form.submit title, class: add_auth_class(:button) %>
+<% end %>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>

@@ -19,6 +19,22 @@ RSpec.describe AddAuth::Core::Maintenance do
     expect(result).to eq(session_deleted: 2, email_payloads_erased: 1, email_enqueued: 2)
   end
 
+  it "purges expired external transactions with the same bounded ceremony contract" do
+    external = double
+    expect(external).to receive(:purge_expired).with(before: now, now: now, limit: 2).and_return(2)
+    result = described_class.new(stores: {external_transaction: external}, options: options,
+      enqueue: ->(*) { raise "external transactions are not mail" }, clock: double(now: now)).call
+    expect(result).to eq(external_transactions_deleted: 2)
+  end
+
+  it "purges native handoffs even with session retention disabled and never treats them as mail" do
+    handoffs = double
+    expect(handoffs).to receive(:purge_expired).with(before: now, now: now, limit: 2).and_return(2)
+    result = described_class.new(stores: {mobile_handoff: handoffs}, options: options,
+      enqueue: ->(*) { raise "handoffs are not mail" }, clock: double(now: now)).call
+    expect(result).to eq(mobile_handoffs_deleted: 2)
+  end
+
   it "rejects invalid capacity and retention settings before touching a store" do
     [0, -1, 1001, 2.5, nil, "100"].each do |value|
       options.batch_size = value

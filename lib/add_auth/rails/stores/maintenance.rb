@@ -12,7 +12,7 @@ module AddAuth
           scope = @model.where("expires_at <= ?", before)
           if @kind == :session
             scope = scope.or(@model.where("revoked_at <= ?", before))
-          elsif @kind != :ceremony
+          elsif !Core::Maintenance::EXPIRING.key?(@kind)
             scope = without_live_lease(scope, now)
           end
           bounded(scope, limit).delete_all

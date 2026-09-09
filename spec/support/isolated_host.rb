@@ -43,10 +43,12 @@ class IsolatedHost
     execute("bin/rails", *arguments, chdir: root)
   end
 
-  def runner(source, variables = {})
+  def runner(source, variables = {}, skip_executor: false)
     file = File.join(directory, "runner-#{SecureRandom.hex(6)}.rb")
     File.write(file, source, mode: "w", perm: 0o600)
-    execute("bin/rails", "runner", file, chdir: root, variables: variables)
+    arguments = ["bin/rails", "runner"]
+    arguments << "--skip-executor" if skip_executor
+    execute(*arguments, file, chdir: root, variables: variables)
   end
 
   def configure

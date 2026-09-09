@@ -20,7 +20,8 @@ module AddAuth
     end
 
     def boot
-      source = 'if (!window.Turbo) await import("/add_auth/turbo.js"); await import("/add_auth/challenge.js");'
+      source = Rails::Runtime.config.turbo_enabled ? 'if (!window.Turbo) await import("/add_auth/turbo.js");' : ""
+      source += ' await import("/add_auth/challenge.js");'
       source += ' await import("/add_auth/passkey.js");' if Rails::Runtime.config.passkeys.enabled
       render body: source, content_type: "text/javascript"
     end

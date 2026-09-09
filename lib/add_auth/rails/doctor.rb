@@ -33,6 +33,7 @@ module AddAuth
           end
           check("Include AddAuth::Rails::UserLifecycle in User") { ::User < UserLifecycle }
           check("Set passwords_enabled to true or false") { [true, false].include?(config.passwords_enabled) }
+          check("Set turbo_enabled to true or false") { [true, false].include?(config.turbo_enabled) }
           if config.passwords_enabled || defined?(::SessionsController)
             check("Install the shared password entry in SessionsController") { ::SessionsController < PasswordEntry }
           end
@@ -63,6 +64,25 @@ module AddAuth
             end
           end
         end
+        if config.mobile.enabled
+          columns(::Session, %w[transport client_id mobile_idle_timeout], "mobile session")
+          check("Configure explicit bounded mobile timeouts and registered client identifiers") { Runtime.mobile_profile }
+          check("Install mobile session routes") { ::Rails.application.routes.recognize_path("/mobile/session", method: :post) }
+          check("Configure mobile callbacks and Apple providers as explicit maps") do
+            config.mobile.callbacks.is_a?(Hash) && config.mobile.apple_providers.is_a?(Hash)
+          end
+          if config.mobile.callbacks.is_a?(Hash) && config.mobile.callbacks.any?
+            check("Enable reviewed provider integration before mobile handoffs") { config.external_identities.enabled }
+            columns(defined?(::AddAuthMobileHandoff) && ::AddAuthMobileHandoff,
+              %w[user_id external_digest digest client_id callback state challenge_digest credential_id credential_version policy_version authenticated_at issued_at expires_at consumed_at], "mobile handoff")
+            unique_index(::AddAuthMobileHandoff, "digest") if defined?(::AddAuthMobileHandoff)
+            unique_index(::AddAuthMobileHandoff, "external_digest") if defined?(::AddAuthMobileHandoff)
+            check("Use one database pool for mobile handoffs, accounts and sessions") { Runtime.mobile_handoffs }
+          end
+          if config.mobile.apple_providers.is_a?(Hash) && config.mobile.apple_providers.any?
+            check("Configure the optional native Apple library and exact client mapping") { Runtime.native_apple }
+          end
+        end
         if config.email_link.enabled
           check("Enable session_upgrade before email_link") { config.session.enabled }
           check("Configure base_url as a fixed HTTPS origin (HTTP only outside production)") { Runtime.sign_in_url("validation") }
@@ -75,7 +95,54 @@ module AddAuth
             columns(defined?(::AddAuthSignInToken) && ::AddAuthSignInToken, ["browser_digest"], "email browser binding")
           end
         end
-        if config.email_link.enabled || config.notifications.enabled
+        if config.external_identities.enabled
+          check("Enable session and step-up prerequisites for provider sign-in") { config.session.enabled && config.step_up.enabled }
+          check("Declare current password verifier support metadata") { config.current_password_support.respond_to?(:available?) }
+          if config.external_identities.providers.any?
+            require "add_auth/rails/provider_libraries/request_protection"
+            check("Configure a supported OmniAuth request validator") { !!ProviderLibraries::RequestProtection.validator }
+          end
+          check("Register at least one reviewed provider profile") { config.external_identities.configurations.any? }
+          columns(defined?(::AddAuthExternalIdentity) && ::AddAuthExternalIdentity,
+            %w[user_id namespace provider_id issuer audience subject provenance credential_version linked_at revoked_at invalidated_at], "external identity")
+          columns(defined?(::AddAuthExternalTransaction) && ::AddAuthExternalTransaction,
+            %w[digest browser_digest provider_id issuer audience purpose user_id session_id session_digest policy_version issued_at expires_at consumed_at enrollment_payload], "external transaction")
+          columns(::Session, %w[authentication_external_id authentication_external_version], "external session evidence")
+          unique_index(::AddAuthExternalIdentity, "namespace") if defined?(::AddAuthExternalIdentity)
+          unique_index(::AddAuthExternalTransaction, "digest") if defined?(::AddAuthExternalTransaction)
+          check("Use one database pool for provider, account and session persistence") { Runtime.external_identities }
+          config.external_identities.providers.each do |provider|
+            check("Install the configured provider callback and preparation routes") do
+              ::Rails.application.routes.recognize_path("/sign-in/providers/#{provider.middleware_name}", method: :post) &&
+                ::Rails.application.routes.recognize_path("/auth/#{provider.middleware_name}/callback", method: provider.apple_form_post? ? :post : :get)
+            end
+          end
+          check("Install provider account management routes") { ::Rails.application.routes.recognize_path("/account/external-identities", method: :get) }
+        end
+        if config.lifecycle.enabled
+          if defined?(::PasswordsController)
+            check("Retire stock password reset entry points through the shared account flow") { ::PasswordsController < AccountPasswordEntry }
+          end
+          columns(::Session, %w[remembered idle_timeout], "remembered browser sessions")
+          check("Enable session, step-up and notification prerequisites for account lifecycle") { config.session.enabled && config.step_up.enabled && config.notifications.enabled }
+          columns(::User, %w[confirmed_at unconfirmed_email locked_at failed_attempts disabled_at deleted_at add_auth_manual_lock add_auth_locked_until add_auth_authority], "account lifecycle")
+          columns(defined?(::AddAuthAccountToken) && ::AddAuthAccountToken,
+            (TOKEN_COLUMNS - %w[identifier_digest]) + %w[address_digest account_version], "account proofs")
+          columns(defined?(::AddAuthAddressClaim) && ::AddAuthAddressClaim, %w[user_id digest state], "address claims")
+          if defined?(::AddAuthAccountToken)
+            unique_index(::AddAuthAccountToken, "digest")
+            unique_index(::AddAuthAccountToken, "request_id")
+          end
+          unique_index(::AddAuthAddressClaim, "digest") if defined?(::AddAuthAddressClaim)
+          check("Configure account policy, profile mapping and local transaction provisioning callbacks") do
+            %i[eligible password_policy profile_attributes provision deletion_allowed delete_account].all? { |name| config.lifecycle.public_send(name).respond_to?(:call) }
+          end
+          check("Configure account proof delivery, lock policy and shared account storage") { Runtime.accounts && Runtime.password_lifecycle && Runtime.account_proof_url("validation", purpose: "confirm") }
+          %w[/account/sign-up /account/requests/confirm /account/email /account/password].each do |path|
+            check("Install route #{path}") { ::Rails.application.routes.recognize_path(path, method: :get) }
+          end
+        end
+        if config.email_link.enabled || config.notifications.enabled || config.lifecycle.enabled
           check("Configure mail_from") { config.mail_from.is_a?(String) && !config.mail_from.strip.empty? }
           check("Enable Action Mailer delivery") { ActionMailer::Base.perform_deliveries && ActionMailer::Base.raise_delivery_errors }
           if ::Rails.env.production?
@@ -83,7 +150,7 @@ module AddAuth
             check("Configure production mail delivery") { !%i[test file].include?(ActionMailer::Base.delivery_method) }
           end
         end
-        maintenance_needed = config.passkeys.enabled || config.email_link.enabled || config.notifications.enabled || config.maintenance.session_retention
+        maintenance_needed = config.passkeys.enabled || config.email_link.enabled || config.notifications.enabled || config.lifecycle.enabled || config.external_identities.enabled || config.mobile.enabled || config.maintenance.session_retention
         if ::Rails.env.production? && maintenance_needed
           check("Schedule add_auth:deliver_pending every minute; no successful cleanup in the last two minutes") { Runtime.maintenance_current? }
         end
@@ -122,7 +189,7 @@ module AddAuth
           end
         end
         if config.challenge_on.any?
-          check("Unknown challenge actions") { (config.challenge_on - %i[sign_in email_link reauthenticate passkey_enrollment]).empty? }
+          check("Unknown challenge actions (email proof pages cannot load third-party challenges)") { (config.challenge_on - %i[sign_in email_link reauthenticate passkey_enrollment register account_request provider]).empty? }
           check("Configure a challenge provider before setting challenge_on") { !config.challenge.is_a?(Core::Challenge::Null) }
           if ::Rails.env.production?
             check("Configure challenge hostname restrictions") { config.challenge.allowed_hostnames&.any? }

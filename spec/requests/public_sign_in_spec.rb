@@ -120,6 +120,15 @@ RSpec.describe "Public sign in", type: :request, database: true do
     expect(response.body).to include('target="add_auth-content"', 'action="update"', "Email or password is incorrect")
   end
 
+  it "returns a full destination document for Turbo redirects while retaining explicit stream GETs" do
+    get "/sign-in", headers: {"Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml"}
+    expect(response.media_type).to eq("text/html")
+    expect(response.body).to include("<!DOCTYPE html>", "add_auth-content")
+    get "/sign-in", headers: {"Accept" => "text/vnd.turbo-stream.html"}
+    expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+    expect(response.body).to include('<turbo-stream action="update" target="add_auth-content">')
+  end
+
   it "supports framework classes and disabling the default stylesheet" do
     config = AddAuth.configuration
     old_css, old_classes = config.stylesheet, config.css_classes

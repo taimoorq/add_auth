@@ -1,0 +1,5 @@
+<% content_for :title, "Check your email" %>
+<h1 id="add_auth-title">Check your email</h1>
+<p role="status">If this request is available for your account, we’ll send a link with the next step.</p>
+<p class="<%= add_auth_class(:muted) %>">Check your spam folder too. Only the latest link for this request will work.</p>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>

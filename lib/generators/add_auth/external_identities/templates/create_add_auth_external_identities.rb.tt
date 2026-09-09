@@ -1,0 +1,50 @@
+class CreateAddAuthExternalIdentities < ActiveRecord::Migration[8.0]
+  def change
+    user_type = reference_type(:users)
+    session_type = reference_type(:sessions)
+    create_table :add_auth_external_identities do |t|
+      t.references :user, type: user_type, null: false, foreign_key: {on_delete: :cascade}
+      # SHA256 of the exact JSON [configuration, issuer, audience, subject].
+      # Indexing this key preserves case-sensitive subjects on either store.
+      t.string :namespace, limit: 64, null: false
+      t.string :provider_id, limit: 2048, null: false
+      t.string :issuer, limit: 2048, null: false
+      t.string :audience, limit: 2048, null: false
+      t.string :subject, limit: 2048, null: false
+      t.string :provenance, limit: 2048, null: false
+      t.string :credential_version, null: false
+      t.datetime :linked_at, null: false
+      t.datetime :revoked_at
+      t.timestamps
+    end
+    add_index :add_auth_external_identities, :namespace, unique: true
+    create_table :add_auth_external_transactions do |t|
+      t.string :digest, null: false
+      t.string :browser_digest, null: false
+      t.string :provider_id, limit: 2048, null: false
+      t.string :issuer, limit: 2048, null: false
+      t.string :audience, limit: 2048, null: false
+      t.string :purpose, null: false
+      t.references :user, type: user_type, foreign_key: {on_delete: :cascade}
+      t.references :session, type: session_type, foreign_key: {on_delete: :cascade}
+      t.string :session_digest
+      t.integer :policy_version
+      t.datetime :issued_at, null: false
+      t.datetime :expires_at, null: false
+      t.datetime :consumed_at
+      t.timestamps
+    end
+    add_index :add_auth_external_transactions, :digest, unique: true
+    add_index :add_auth_external_transactions, :expires_at
+    add_column :sessions, :authentication_external_id, :string
+    add_column :sessions, :authentication_external_version, :string
+  end
+
+  private
+
+  def reference_type(table)
+    column = connection.columns(table).find { |item| item.name == connection.primary_key(table) }
+    raise "Unsupported authentication primary key" unless column && [:integer, :uuid].include?(column.type)
+    (column.type == :integer && column.limit == 8) ? :bigint : column.type
+  end
+end

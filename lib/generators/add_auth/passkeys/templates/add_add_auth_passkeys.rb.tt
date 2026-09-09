@@ -1,5 +1,9 @@
+require "add_auth/rails/migration/key_type"
+
 class AddAddAuthPasskeys < ActiveRecord::Migration[8.0]
   def change
+    user_key_type = AddAuth::Rails::Migration::KeyType.for(connection, :users)
+    session_key_type = AddAuth::Rails::Migration::KeyType.for(connection, :sessions, session: true)
     # Rails 8.0 cannot reflect SQLite's FALSE literal emitted by Rails 8.1.
     # Keep the additive schema readable by both supported Rails lines.
     false_default = (connection.adapter_name == "SQLite") ? -> { "0" } : false
@@ -11,7 +15,7 @@ class AddAddAuthPasskeys < ActiveRecord::Migration[8.0]
     add_column :sessions, :authentication_credential_id, :string
     add_column :sessions, :authentication_uv, :boolean, default: false_default, null: false
     create_table :add_auth_credentials do |t|
-      t.references :user, null: false, foreign_key: {on_delete: :cascade}
+      t.references :user, type: user_key_type, null: false, foreign_key: {on_delete: :cascade}
       t.string :external_id, null: false
       t.text :public_key, null: false
       t.bigint :sign_count, default: 0, null: false
@@ -31,8 +35,8 @@ class AddAddAuthPasskeys < ActiveRecord::Migration[8.0]
       t.string :kind, null: false
       t.string :browser_digest, null: false
       t.string :configuration_digest, null: false
-      t.references :user, foreign_key: {on_delete: :cascade}
-      t.references :session, foreign_key: {on_delete: :cascade}
+      t.references :user, type: user_key_type, foreign_key: {on_delete: :cascade}
+      t.references :session, type: session_key_type, foreign_key: {on_delete: :cascade}
       t.string :session_digest
       t.string :authentication_purpose
       t.datetime :expires_at, null: false

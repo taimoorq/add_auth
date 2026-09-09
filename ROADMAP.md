@@ -4,9 +4,9 @@ AddAuth extends Rails 8's authentication generator with email-link sign-in,
 passkeys, purpose-bound reauthentication, hardened sessions and pluggable captcha.
 It reuses the host's accounts and Session model.
 
-**Reviewed 2026-09-08: 0.2.2 is published, and the planned v1 strategy features
-have shipped.** The next work covers Devise migration paths and the future 1.0
-support commitment, informed by ongoing adoption feedback. Milestones below describe priorities, not promised dates or
+**Reviewed 2026-09-09: 0.2.2 is published, and the planned v1 strategy features
+have shipped.** The bounded Devise migration and native additions below are locally verified
+and selected for 0.3.0. The future 1.0 support commitment remains separate. Milestones below describe priorities, not promised dates or
 versions. See [release status](https://addauthgem.com/release-status/),
 [the changelog](CHANGELOG.md) and [the manual](https://addauthgem.com/).
 
@@ -86,34 +86,81 @@ defect or a reason by itself to republish 0.2.1.
       guide and evidence-backed troubleshooting updates before the candidate
       freezes. The current latest-0.x policy remains in
       [SECURITY.md](SECURITY.md).
-- [ ] **R8 · Define Devise migration readiness.** Inventory source versions,
+- [x] **R8 · Define Devise migration readiness.** Inventory source versions,
       modules, extensions and customizations; provide a read-only preflight with
       supported mappings, prerequisites and actionable blockers. Running Rails 8
       alone does not establish the authentication contracts AddAuth needs.
-- [ ] **R8 · Provide a path for Rails-aligned Devise apps.** Reuse verified
+- [x] **R8 · Provide a path for Rails-aligned Devise apps.** Reuse verified
       account/session contracts and preserve host customizations while replacing
       remaining Devise authentication wiring. Prove password compatibility,
       account restrictions, session/token revocation and safe cutover/rollback.
-- [ ] **R8 · Provide a path for standard or customized Devise apps.** Guide an
+- [x] **R8 · Provide a path for standard or customized Devise apps.** Guide an
       additive conversion from existing models, identifiers, password storage
       and controllers to the supported Rails contracts. Preserve account IDs and
       associations; resolve incompatible hashes, identifier collisions and
       unsupported module policies before cutover. Include older-runtime
       prerequisites and host-owned lifecycle replacements where needed.
-- [ ] **R8 · Rehearse and document both migration paths.** Test populated Devise
+- [x] **R8 · Add optional account lifecycle support.** Registration,
+      confirmation/reconfirmation, password reset, lock/unlock and account
+      changes must preserve ownership, account policy and session revocation.
+- [x] **R8 · Preserve provider sign-in through maintained libraries.** Add
+      optional OmniAuth integration with verified identity binding, explicit
+      linking/unlinking and usable recovery for provider-only accounts.
+      Preserve host-owned OAuth configuration, routes and other provider flows;
+      delegate protocol work to the selected libraries.
+- [x] **R8 · Rehearse both migration paths and draft the guides.** Test populated Devise
       hosts before and after migration, including custom schema, peppered
       passwords, denied accounts, interrupted conversion and rollback. Verify
-      supported database/runtime and Turbo/no-JS journeys, publish step-by-step
-      guides and prove the destination works with Devise removed.
+      supported database/runtime, ordinary HTML with JavaScript and Turbo absent,
+      Turbo enhancement and permitted no-JS journeys. Draft step-by-step guides
+      and prove the destination works with Devise removed.
+- [ ] **R8 · Publish migration and native guides with the feature release.**
+      Verify the released package, installation commands, HTTPS and deep links;
+      keep development guides explicitly unpublished until then.
+
+Local development has verified preflight, optional account lifecycle and
+provider-library integration across the supported Ruby/Rails matrix, including
+ordinary HTML, Turbo and permitted no-JS journeys. These additions are
+unpublished. Migration/checkpoint/compatible-rollback tests and native client
+acceptance are complete locally. The full adopter suite passes 1,330 examples
+with zero failures and three existing empty scaffold examples pending. Six
+development guides pass build, browser, keyboard and no-JS checks. Publication
+and the proposed 1.0 commitment remain separate gates.
+
+## Locally verified — Android and iOS login
+
+Mobile support is now part of the active migration implementation. It is not available in the published gem. These capabilities extend the
+same account and session policies. The verified finite profile uses explicit
+30-day absolute and 14-day idle limits, with fresh sign-in after expiry. Renewable
+refresh-token families remain a distinct optional capability, currently disabled.
+The owner selected 0.3.0; publication and package verification remain pending.
+
+- [x] **R8 · Password and provider login for native clients.** Return credentials
+      over authenticated HTTPS responses; preserve supported client contracts.
+- [x] **R8 · Secure browser-to-app sign-in handoffs.** Short-lived, single-use
+      codes bound to state and a verifier, exact callback validation, and native
+      Apple nonce verification; no reusable bearer tokens in callback URLs.
+- [x] **R8 · Device sessions and revocation.** Expiring, digested API credentials,
+      cookie/bearer separation, device listing, current-device and all-device
+      logout, and invalidation on password/account changes. Evaluate optional
+      renewal with rotation and replay detection as a distinct profile.
+- [x] **R8 · Android/iOS migration acceptance.** Test secure client storage,
+      cancellation/restarts, account switching, expiry and concurrent handoffs,
+      plus supported old/new client combinations. Android/iOS consumers also
+      pass against an installed gem in an isolated Rails adopter over local HTTPS.
 
 Each change owns its tests and keeps intermediate releases usable. R3/R4 findings
 feed R5. A patch may address compatible corrections; another 0.x minor is possible
 if integration contracts change. A 0.3 release is not a prerequisite for 1.0.
 R8 follows the published 0.2.2 correction; its supported source profiles
-and delivery version will be decided during discovery, with public API impact
-resolved before R5 freezes. Devise migration support is not available yet.
+are bounded to the verified Devise 5.0.4 fixtures. The selected delivery version is 0.3.0. Its pre-1.0 integration contracts
+remain subject to review before R5 freezes. Devise migration support is not available yet.
 
-## Delivery — 0.2.2 first, then the proposed 1.0 gate
+## Delivery — 0.3.0 feature release, then the proposed 1.0 gate
+
+- [x] Select 0.3.0 for the locally verified migration, lifecycle, provider and native scope.
+- [ ] Pass required PR and exact default-branch CI/CodeQL for 0.3.0.
+- [ ] Publish 0.3.0 through protected OIDC and verify the downloaded package and manual.
 
 - [x] **R6 · Deliver the 0.2.2 correction.**
       [PR #10](https://github.com/taimoorq/add_auth/pull/10) passed all required
@@ -162,19 +209,19 @@ compatible extension could ship in 1.x after an explicit scope decision.
       before implementation; codes must not silently satisfy passkey-only purposes.
 - [ ] **F2 · Rails-native password hashing integration.** Recheck available Rails
       support and real adopter needs before adding an adapter or changing a default.
-- [ ] **F3 · Account lifecycle helpers.** Evaluate registration, confirmation,
-      reset, lockout and password policy individually against repeated needs.
-      Current host password integration already ships.
+- [ ] **F3 · Account lifecycle helpers.** The bounded migration requirements
+      are promoted to R8 above; broader module parity remains outside this scope.
 - [ ] **F4 · Multiple realms.** Require a concrete identity/session-isolation need
       and migration design before adding models, cookies or routing APIs.
-- [ ] **F4 · API/token authentication.** Decide separately from browser sessions
-      and realms; require a real non-browser client use case.
+- [ ] **F4 · API/token authentication.** Android/iOS login is the active R8
+      work above; multiple realms and general API-key management remain separate.
 - [ ] **F5 · Standalone test helpers or challenge adapters.** Extract only if
       independent demand and maintenance capacity justify another package;
       retain one implementation per concern.
 
-Social/OIDC, SMS/TOTP and enterprise or cross-origin WebAuthn are outside the
-current roadmap. Account roles, invitations, authorization and email branding
+Optional provider-library integration is locally verified under R8. SMS/TOTP and enterprise
+or cross-origin WebAuthn remain outside the current roadmap. Account roles,
+invitations, authorization and email branding
 stay with the host.
 
 ## Shipped — 0.2.1 baseline

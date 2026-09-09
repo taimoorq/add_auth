@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"<% unless AddAuth.configuration.turbo_enabled %> data-turbo="false"<% end %>>
   <head>
-    <title>Sign in</title>
+    <title><%= content_for?(:title) ? yield(:title) : "Sign in" %></title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="referrer" content="no-referrer">
+    <meta name="referrer" content="<%= response.headers["Referrer-Policy"] || "no-referrer" %>">
     <% turbo_exempts_page_from_cache %>
     <% turbo_page_requires_reload if request.headers["Turbo-Frame"].present? %>
     <%= yield :head %>
@@ -13,6 +13,7 @@
   </head>
   <body class="<%= add_auth_class(:body) %>">
     <main class="<%= add_auth_class(:panel) %>" aria-labelledby="add_auth-title">
+      <% if flash[:notice] %><p role="status" data-turbo-temporary><%= flash[:notice] %></p><% end %>
       <div id="add_auth-content"><%= yield %></div>
     </main>
   </body>

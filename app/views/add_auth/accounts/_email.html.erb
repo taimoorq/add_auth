@@ -1,0 +1,12 @@
+<% content_for :title, "Change your email" %>
+<h1 id="add_auth-title">Change your email</h1>
+<p class="<%= add_auth_class(:muted) %>">Your current email stays active until you confirm the new address. Confirmation signs out your existing sessions.</p>
+<% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
+<%= form_with url: "/account/email", data: {turbo_frame: "_top"} do |form| %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :email_address, "New email address" %>
+    <%= form.email_field :email_address, required: true, maxlength: 254, autocomplete: "email", value: (params[:email_address] if params[:email_address].is_a?(String)), class: add_auth_class(:input) %>
+  </div>
+  <%= form.submit "Send confirmation link", class: add_auth_class(:button) %>
+<% end %>
+<p><%= link_to "Back to your sessions", "/sessions" %></p>

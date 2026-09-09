@@ -83,7 +83,15 @@ bundle exec rspec spec/generators/persistence_generator_spec.rb
 bundle exec rspec spec/system/sign_in_spec.rb
 bundle exec rspec spec/system/passkeys_spec.rb
 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
+ADD_AUTH_TURBO=0 bundle exec rspec spec/system
+ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
 ```
+
+Browser changes must pass in bundled and ejected UI with Turbo enabled, with
+JavaScript enabled and Turbo absent (`ADD_AUTH_TURBO=0`), and with JavaScript
+disabled (covered by the same suite). The plain navigation run exercises real
+passkey and captcha modules too. Keep this matrix when adding browser journeys;
+no-JS coverage alone does not establish operation without Turbo.
 
 `add_auth:email_tokens` is an internal persistence generator: it creates an
 additive token table migration and model for review. It does not run migrations,
@@ -97,6 +105,81 @@ disposable database named `add_auth_test`:
 ```sh
 ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
 ```
+
+## Optional account and OAuth development acceptance
+
+Account migration and external identities are development work and remain
+disabled by default. Provider gems belong to the host's bundle. AddAuth must
+preserve their registration, scopes, CSRF validator, failure handler and unrelated
+routes; protocol exchange and verification stay in those libraries.
+
+From this checkout, run the synthetic source/destination and browser fixtures:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle install
+BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/*.rb
+BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle install
+createdb add_auth_external_test
+ADD_AUTH_MICROSOFT_DATABASE_URL=postgresql://localhost/add_auth_external_test BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle exec rspec spec/providers/*.rb
+ADD_AUTH_EJECT_UI=1 ADD_AUTH_MICROSOFT_DATABASE_URL=postgresql://localhost/add_auth_external_test BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle exec rspec spec/providers/google_sign_in.rb spec/providers/apple_form_post.rb spec/providers/microsoft_browser.rb
+```
+
+Use `createdb` only when that dedicated test database does not already exist.
+Substitute `8_0` for the other supported Rails line. Chrome and local PostgreSQL
+are required; absent prerequisites fail rather than skip acceptance. Provider
+fixtures install the built candidate in disposable hosts, use synthetic local
+identity providers and exercise the actual protocol libraries. Google and Apple
+intercept specific remote HTTP endpoints; Microsoft uses local HTTP throughout.
+Apple uses a temporary HTTPS certificate and verifies cross-site cookie behavior.
+No live provider account or production credential is used.
+
+Google's host tests independent confirmation, provider-only recovery/password
+enrollment, remembered sessions, linking/unlinking and deletion. Browser fixtures
+check Turbo, ordinary JavaScript with Turbo absent and permitted no-JS navigation;
+Microsoft's UUID profile uses PostgreSQL. Ejection checks assert that the provider
+partials were actually copied. The default RSpec suite still runs without these
+optional gems. Serialize commands that boot `spec/dummy`; separate generated hosts
+have their own databases or unique test schemas.
+
+## Migration execution and compatibility rollback
+
+The migration fixtures now also execute `examples/devise_backfill.rb`, a
+contributor-only recipe for isolated Rails test hosts. It delegates projection
+and account locking to Core, binds the checkpoint to the reviewed source/config
+and database manifest, and writes a private cursor atomically under an operator
+lock. It does not select authority or perform production deployment. Review its
+manifest fields before adapting it; keep the checkpoint directory mode 0700 and
+checkpoint mode 0600. Resume the same manifest after interruption; conflicts or
+changed source rows retain the prior cursor. Reconcile the full cohort before a
+switch, including rows written after the census.
+
+From the gem checkout:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
+ADD_AUTH_MIGRATION_POSTGRES=1 BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
+```
+
+The PostgreSQL fixture creates only its dedicated `add_auth_migration_test`
+database and random schemas, removing those schemas afterward. The rollback
+fixture boots a fresh compatibility process after password reset, email change,
+provider unlink and deletion. It retains canonical readers and tests the retired
+Devise writer fence. It does not promise that any earlier Devise deployment is a
+safe rollback target. Unsupported rollback means stop intake and forward repair;
+restoring a database requires reconciliation of later changes and revocations.
+
+Native session/provider fixtures run in the existing optional provider bundle:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle exec rspec spec/providers/apple_native_host.rb
+ADD_AUTH_EJECT_UI=1 BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle exec rspec spec/providers/apple_native_host.rb
+ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test BUNDLE_GEMFILE=gemfiles/providers_rails_8_1.gemfile bundle exec rspec spec/providers/apple_native.rb
+```
+
+They use signed synthetic Apple tokens and local client/callback fixtures.
+Physical-device sign-in, live provider registrations and store uploads belong to
+the adopter's deployment. The finite mobile profile requires fresh sign-in after
+expiry; no rotating refresh-token family is enabled by this work.
 
 ## Local operational acceptance
 

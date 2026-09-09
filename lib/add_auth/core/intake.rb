@@ -52,7 +52,12 @@ module AddAuth
       end
 
       def self.revoke_after_change?(changes)
-        (changes.keys.map(&:to_s) & %w[password_digest email_address]).any?
+        (changes.keys.map(&:to_s) & %w[password_digest email_address confirmed_at locked_at disabled_at deleted_at add_auth_authority add_auth_manual_lock]).any?
+      end
+
+      def self.notification_after_change(changes)
+        return :password_changed if changes.key?("password_digest")
+        :email_changed if changes.key?("email_address")
       end
     end
   end

@@ -1,4 +1,24 @@
 Rails.application.routes.draw do
+  get "mobile/providers/:provider", to: "add_auth/provider_sign_ins#prepare", defaults: {flow: "mobile"}
+  post "mobile/handoff", to: "add_auth/mobile_sessions#exchange"
+  post "mobile/apple/challenge", to: "add_auth/mobile_sessions#apple_challenge"
+  post "mobile/apple/session", to: "add_auth/mobile_sessions#apple"
+  post "mobile/apple/enrollment", to: "add_auth/mobile_sessions#apple_enroll"
+  post "mobile/session", to: "add_auth/mobile_sessions#create"
+  get "mobile/session", to: "add_auth/mobile_sessions#show"
+  delete "mobile/session", to: "add_auth/mobile_sessions#destroy"
+  get "mobile/sessions", to: "add_auth/mobile_sessions#index"
+  delete "mobile/sessions/:id", to: "add_auth/mobile_sessions#revoke"
+  post "mobile/sessions/revoke-all", to: "add_auth/mobile_sessions#revoke_all"
+  # AddAuth external provider callbacks
+  get "account/sign-up/providers/:provider", to: "add_auth/provider_sign_ins#enrollment", defaults: {flow: "enroll"}
+  post "account/sign-up/providers/:provider", to: "add_auth/provider_sign_ins#prepare", defaults: {flow: "enroll"}
+  post "sign-in/providers/:provider", to: "add_auth/provider_sign_ins#prepare", defaults: {flow: "sign_in"}
+  post "account/external-identities/providers/:provider", to: "add_auth/provider_sign_ins#prepare", defaults: {flow: "link"}
+  get "account/external-identities", to: "add_auth/external_identities#index"
+  delete "account/external-identities/:id", to: "add_auth/external_identities#destroy"
+  post "reauthenticate/providers/:provider", to: "add_auth/provider_sign_ins#prepare", defaults: {flow: "reauthenticate"}
+  match "auth/:provider/callback", to: "add_auth/provider_sign_ins#callback", via: [:get, :post], constraints: AddAuth::Rails::ProviderLibraries::CallbackRoute
   get "add_auth/application.js", to: "add_auth/assets#application"
   get "add_auth/codec.js", to: "add_auth/assets#codec"
   get "add_auth/passkey.js", to: "add_auth/assets#passkey"

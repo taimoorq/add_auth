@@ -2,7 +2,7 @@
   <% @sessions.each do |session| %>
     <li class="add_auth-session" id="session_<%= session.id %>">
       <div>
-        <strong><%= session.current ? "This browser" : "Signed-in browser" %></strong>
+        <strong><%= session.transport == "mobile" ? "Signed-in mobile device (#{session.client_id})" : (session.current ? "This browser" : "Signed-in browser") %></strong>
         <p class="<%= add_auth_class(:muted) %>">
           <%= session.authenticated_with ? "Signed in with #{session.authenticated_with.tr("_", " ")}" : "Imported session" %>
           · <%= session.last_seen_at ? "Last active #{session.last_seen_at.strftime("%Y-%m-%d %H:%M UTC")}" : "Activity unknown" %>

@@ -20,18 +20,20 @@ RSpec.describe "Sign-in browser journeys", database: true do
     browser.save_screenshot(File.join(ENV.fetch("ADD_AUTH_SCREENSHOTS"), "#{name}.png"))
   end
 
-  it "supports Turbo failure/success, responsive layout, focus and frame breakout" do
+  it "supports failure/success, responsive layout, focus and the configured navigation mode" do
     browser = Capybara::Session.new(:add_auth_chrome, Rails.application)
     browser.visit "/sign-in"
     expect(browser).to have_css(".add_auth-panel")
     browser.document.synchronize do
-      raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == "object"
+      raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == (AddAuth.configuration.turbo_enabled ? "object" : "undefined")
     end
+    browser.execute_script("window.addAuthNavigationMarker = true")
     capture(browser, "sign-in-desktop")
     browser.fill_in "Email address", with: user.email_address
     browser.fill_in "Password", with: "wrong"
     browser.click_button "Sign in with password"
     expect(browser).to have_css('[role="alert"]', text: "Email or password is incorrect")
+    expect(browser.evaluate_script("window.addAuthNavigationMarker === true")).to eq(AddAuth.configuration.turbo_enabled)
     browser.current_window.resize_to(390, 844)
     expect(browser.evaluate_script("window.innerWidth")).to be <= 500
     expect(browser.evaluate_script("document.documentElement.scrollWidth <= window.innerWidth")).to be(true)
@@ -43,14 +45,18 @@ RSpec.describe "Sign-in browser journeys", database: true do
     browser.click_button "Sign in with password"
     expect(browser).to have_text("Signed in")
     # A frame that redirects to authentication must become a full-page visit.
-    Session.update_all(revoked_at: Time.current)
-    browser.visit "/sign-in"
-    browser.document.synchronize do
-      raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == "object"
+    if AddAuth.configuration.turbo_enabled
+      Session.update_all(revoked_at: Time.current)
+      browser.visit "/sign-in"
+      browser.document.synchronize do
+        raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == "object"
+      end
+      browser.execute_script('document.body.innerHTML = \'<turbo-frame id="account" src="/"></turbo-frame>\'')
+      expect(browser).to have_css("h1", text: "Sign in")
+      expect(browser).not_to have_text("Content missing")
+    else
+      expect(browser.evaluate_script("typeof window.Turbo")).to eq("undefined")
     end
-    browser.execute_script('document.body.innerHTML = \'<turbo-frame id="account" src="/"></turbo-frame>\'')
-    expect(browser).to have_css("h1", text: "Sign in")
-    expect(browser).not_to have_text("Content missing")
     errors = browser.driver.browser.logs.get(:browser).select { |entry| entry.level == "SEVERE" && !entry.message.include?("favicon.ico") && !entry.message.include?("422") }
     expect(errors.map(&:message)).to be_empty
   ensure

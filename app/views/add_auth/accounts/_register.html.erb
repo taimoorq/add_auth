@@ -1,0 +1,17 @@
+<% content_for :title, "Create an account" %>
+<h1 id="add_auth-title">Create an account</h1>
+<p class="<%= add_auth_class(:muted) %>">We’ll email you a link to confirm your address before you sign in.</p>
+<% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
+<%= form_with url: "/account/sign-up", data: add_auth_challenge_form_data(:register) do |form| %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :email_address, "Email address" %>
+    <%= form.email_field :email_address, required: true, maxlength: 254, autocomplete: "email", value: (params[:email_address] if params[:email_address].is_a?(String)), class: add_auth_class(:input) %>
+  </div>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :password, "New password" %>
+    <%= form.password_field :password, required: true, autocomplete: "new-password", class: add_auth_class(:input) %>
+  </div>
+  <%= add_auth_challenge_tag :register %>
+  <%= form.submit "Create account", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+<% end %>
+<p><%= link_to "Already have an account? Sign in", "/sign-in" %></p>

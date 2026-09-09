@@ -1,0 +1,6 @@
+<% if AddAuth.configuration.lifecycle.enabled %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.check_box :remember, id: "#{id}_remember" %>
+    <%= form.label :remember, "Keep me signed in on this browser", for: "#{id}_remember" %>
+  </div>
+<% end %>

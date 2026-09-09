@@ -21,6 +21,9 @@ RSpec.describe "Upgrade from the published AddAuth package" do
     puts "Verified published baseline #{published.fetch(checksum)}"
     Dir.mktmpdir("add-auth-upgrade-") do |directory|
       host = IsolatedHost.new(directory)
+      # Match the generated Rails test configuration on CI locally too. Lazy
+      # loading can hide candidate-only ejections left behind during rollback.
+      host.environment["CI"] = "true"
       host.install(baseline, label: "baseline")
       host.run("generate", "authentication")
       host.run("generate", "add_auth:passkeys")
@@ -93,6 +96,16 @@ RSpec.describe "Upgrade from the published AddAuth package" do
         puts "merged host view rendered"
       RUBY
 
+      # Restore the complete previous presentation, including its file set.
+      # Candidate-only controllers can require APIs absent from the old gem even
+      # when their optional routes are disabled. Never silently remove an edited
+      # host file: this fixture only discards pristine, manifest-owned ejections.
+      candidate_ejections = JSON.parse(File.read(manifest_path)).fetch("files")
+      (candidate_ejections.keys - original_ejections.keys).each do |path|
+        file = File.join(host.root, path)
+        expect(Digest::SHA256.file(file).hexdigest).to eq(candidate_ejections.fetch(path).fetch("generated_hash"))
+        FileUtils.rm(file)
+      end
       # Reinstall the exact previous package with its original ejection baseline.
       # Revoked sessions and spent proofs must stay rejected after code rollback.
       File.binwrite(manifest_path, manifest)

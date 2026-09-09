@@ -122,8 +122,13 @@ RSpec.describe "Challenge browser lifecycle", database: true do
   it "ignores late v3 completion after navigation and clears live tokens before caching" do
     browser = browser_for(:v3, <<~JS)
       window.pendingProofs = [];
-      window.grecaptcha = { ready(callback) { callback() }, execute() { return new Promise(resolve => window.pendingProofs.push(resolve)) } };
+      window.providerReadiness = 0;
+      window.grecaptcha = { ready(callback) { window.providerReadiness++; callback() }, execute() { return new Promise(resolve => window.pendingProofs.push(resolve)) } };
     JS
+    # Plain markup intentionally permits a server-side rejection before JS boots.
+    # This example needs connected controllers to exercise a pending JS proof.
+    wait_for("window.providerReadiness === 2")
+    expect(browser).to have_button("Sign in with password", disabled: false)
     browser.fill_in "Email address", with: user.email_address
     browser.fill_in "Password", with: "correct-password"
     browser.click_button "Sign in with password"

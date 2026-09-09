@@ -17,3 +17,9 @@ Gemfile.lock
 /spec/dummy/db/schema.rb
 /spec/dummy/app/models/add_auth_sign_in_token.rb
 /spec/dummy/db/migrate/*_create_add_auth_sign_in_tokens.rb
+
+/spec/dummy/app/models/add_auth_external_identity.rb
+/spec/dummy/app/models/add_auth_external_transaction.rb
+/spec/dummy/db/migrate/*_create_add_auth_external_identities.rb
+/spec/dummy/db/migrate/*_add_add_auth_external_identity_validity.rb
+/spec/dummy/db/migrate/*_add_add_auth_external_enrollment.rb

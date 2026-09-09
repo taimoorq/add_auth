@@ -44,6 +44,11 @@ module AddAuth
 
       def page(partial, status: :ok)
         @page_partial = authentication_partial(partial)
+        # Turbo carries the form's stream Accept header across a 303. Prefer
+        # its HTML option on the destination GET so navigation commits the URL.
+        if (request.get? || request.head?) && request.accepts.include?(Mime[:html])
+          return render "add_auth/sign_ins/show", layout: "add_auth/authentication", formats: [:html], content_type: "text/html", status: status
+        end
         respond_to do |format|
           format.html { render "add_auth/sign_ins/show", layout: "add_auth/authentication", status: status }
           format.turbo_stream { render turbo_stream: turbo_stream.update("add_auth-content", partial: @page_partial), status: status }

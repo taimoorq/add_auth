@@ -3,6 +3,18 @@
 require "rails_helper"
 
 RSpec.describe AddAuth::AssetsController, type: :request do
+  it "leaves Turbo absent when the host selects ordinary HTML navigation" do
+    original = AddAuth.configuration.turbo_enabled
+    AddAuth.configuration.turbo_enabled = false
+    get "/add_auth/boot.js"
+    expect(response.body).not_to include("turbo.js")
+    expect(response.body).to include("challenge.js")
+    get "/sign-in"
+    expect(response.body).to include('data-turbo="false"')
+  ensure
+    AddAuth.configuration.turbo_enabled = original
+  end
+
   it "serves public modules with forgery protection enabled and without a session" do
     previous = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true

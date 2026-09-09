@@ -11,6 +11,9 @@ Capybara.default_max_wait_time = 5
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--window-size=1280,900")
+    # Explicitly selected only by isolated hosts with generated loopback TLS
+    # certificates; this does not change application/provider HTTP clients.
+    options.accept_insecure_certs = true if ENV["ADD_AUTH_FIXTURE_TLS"] == "1"
     options.add_preference("profile.managed_default_content_settings.javascript", 2) if name == :add_auth_no_js
     options.add_option("goog:loggingPrefs", {browser: "ALL"})
     Capybara::Selenium::Driver.new(app, browser: :chrome, options: options)

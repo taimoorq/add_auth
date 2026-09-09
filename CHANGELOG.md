@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.0 — 2026-09-09
+
+Optional account lifecycle, bounded Devise migration and native authentication.
+The standard Rails-generator installation remains supported; enable only the
+additional capabilities your host needs. The latest-0.x support policy continues.
+
+- Add read-only Devise inventory, additive account preparation, explicit legacy
+  password adoption and retired-source write fences. Preserve account IDs and
+  reject ambiguous identifier/credential conversions.
+- Add optional registration, confirmation/reconfirmation, reset, lock/unlock,
+  account changes and remembered sessions with shared Core policy and delivery.
+- Integrate maintained provider libraries without owning their registrations,
+  protocol exchange, unrelated routes or provider API credentials. Preserve
+  identity ownership and require independent enrollment confirmation.
+- Add opt-in finite native sessions, account-scoped revocation, S256-bound
+  single-use browser handoffs and optional nonce-bound Apple token verification.
+  Mobile duration settings are separate from browser settings; refresh-token
+  families are not part of this finite profile.
+- Verify generated/ejected pages with Turbo, ordinary JavaScript without Turbo
+  and permitted no-JS. Add populated migration, checkpoint, compatibility
+  rollback, provider and native integration fixtures.
+
 ## 0.2.2 — 2026-09-08
 
 - Reject Solid Cache as an authentication rate-limit store: simultaneous first

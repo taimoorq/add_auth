@@ -14,6 +14,7 @@ module AddAuth
 
     def add_auth_challenge_form_data(action)
       data = {turbo_frame: "_top"}
+      data[:turbo] = false unless AddAuth.configuration.turbo_enabled
       return data unless AddAuth.configuration.challenge_on.include?(action)
       provider = AddAuth.configuration.challenge
       return data unless provider.site_key
@@ -23,7 +24,7 @@ module AddAuth
       else return data
       end
       data.merge(controller: "add-auth-challenge",
-        action: "submit->add-auth-challenge#submit add_auth:proof-used->add-auth-challenge#reset turbo:submit-end->add-auth-challenge#reset turbo:before-cache@document->add-auth-challenge#beforeCache",
+        action: "submit->add-auth-challenge#submit add_auth:proof-used->add-auth-challenge#reset turbo:submit-end->add-auth-challenge#reset turbo:before-cache@document->add-auth-challenge#beforeCache pagehide@window->add-auth-challenge#beforeCache pageshow@window->add-auth-challenge#restore",
         add_auth_challenge_provider_value: kind, add_auth_challenge_site_key_value: provider.site_key,
         add_auth_challenge_action_value: (provider.respond_to?(:expected_action) && provider.expected_action) || action,
         add_auth_challenge_script_url_value: provider.script_url)

@@ -9,7 +9,7 @@ module AddAuth
     class Ejection
       MANIFEST = "config/add_auth-ejections.json"
       VIEW_GROUPS = {"email_link" => %w[sign_ins], "sessions" => %w[sessions],
-                     "step_up" => %w[reauthentications], "passkeys" => %w[passkeys recoveries]}.freeze
+                     "step_up" => %w[reauthentications], "passkeys" => %w[passkeys recoveries], "accounts" => %w[accounts], "providers" => %w[provider_sign_ins external_identities]}.freeze
 
       def initialize(host_root:, engine_root: File.expand_path("../../..", __dir__))
         @host, @engine = host_root.to_s, engine_root.to_s

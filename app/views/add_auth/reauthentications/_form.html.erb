@@ -19,6 +19,15 @@
     <%= form.submit "Email me a verification link", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
   <% end %>
 <% end %>
+<% if Array(@methods).include?(:external_identity) && AddAuth.configuration.external_identities.enabled %>
+  <% AddAuth.configuration.external_identities.providers.select(&:reauthentication?).each do |provider| %>
+    <%= form_with url: "/reauthenticate/providers/#{provider.middleware_name}", method: :post, data: add_auth_challenge_form_data(:reauthenticate).merge(turbo: false) do |form| %>
+      <%= form.hidden_field :purpose, value: @purpose %>
+      <%= add_auth_challenge_tag :reauthenticate, id: "verify_#{provider.middleware_name}" %>
+      <%= form.submit "Verify with #{provider.label}", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+    <% end %>
+  <% end %>
+<% end %>
 <% if Array(@methods).empty? %><p role="status">No permitted verification method is available here. Contact your account administrator for an allowed way to continue.</p><% end %>
 <p><%= link_to "Cancel", @rule&.return_to || "/", class: add_auth_class(:link) %></p>
 

@@ -1,5 +1,8 @@
 <h1 id="add_auth-title">Sign in</h1>
 <p class="<%= add_auth_class(:muted) %>">Choose an available sign-in method.</p>
+<% if AddAuth.configuration.lifecycle.enabled %>
+  <p><%= link_to "Create an account", "/account/sign-up" %> · <%= link_to "Forgot your password?", "/account/requests/reset_password" %></p>
+<% end %>
 <% if @error %><p class="<%= add_auth_class(:notice) %>" role="alert"><%= @error %></p><% end %>
 <% if AddAuth.configuration.passwords_enabled %>
 <%= form_with url: "/sign-in/password", id: "add_auth-password-form", data: add_auth_challenge_form_data(:sign_in) do |form| %>
@@ -12,6 +15,7 @@
     <%= form.password_field :password, required: true, autocomplete: "current-password", class: add_auth_class(:input) %>
   </div>
   <%= add_auth_challenge_tag :sign_in %>
+  <%= render "add_auth/sign_ins/remember", form: form, id: "password" %>
   <%= form.submit "Sign in with password", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
 <% end %>
 <% end %>
@@ -31,4 +35,17 @@
 <% if AddAuth.configuration.passkeys.enabled %>
   <%= render "add_auth/passkeys/controls", mode: "get", options_url: "/passkeys/sign-in/options", finish_url: "/passkeys/sign-in", label: "Sign in with a passkey", action: :sign_in, conditional: true %>
   <p><%= link_to "I can’t use my passkeys", "/recover" %></p>
+<% end %>
+<% if AddAuth.configuration.external_identities.enabled && AddAuth.configuration.external_identities.providers.any? %>
+  <hr class="<%= add_auth_class(:divider) %>">
+  <% AddAuth.configuration.external_identities.providers.each do |provider| %>
+    <%= form_with url: "/sign-in/providers/#{provider.middleware_name}", method: :post, data: add_auth_challenge_form_data(:provider).merge(turbo: false) do |form| %>
+      <%= render "add_auth/sign_ins/remember", form: form, id: "provider_#{provider.middleware_name}" %>
+      <%= add_auth_challenge_tag :provider, id: "provider_#{provider.middleware_name}" %>
+      <%= form.submit "Continue with #{provider.label}", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+    <% end %>
+    <% if AddAuth.configuration.lifecycle.enabled %>
+      <p><%= link_to "Create an account with #{provider.label}", "/account/sign-up/providers/#{provider.middleware_name}" %></p>
+    <% end %>
+  <% end %>
 <% end %>

@@ -34,6 +34,10 @@ RSpec.describe "Solid Cache rate-counter suitability" do
         file.puts "Rails.application.config.solid_cache.connects_to = { database: { writing: :cache } }"
       end
       host.run("db:prepare")
+      # The disposable database may already contain the main store-contract
+      # tables. Rails then treats it as initialized and db:prepare does not load
+      # this new cache schema. Load the cache-only schema explicitly.
+      host.run("db:schema:load:cache")
       key = "add_auth:acceptance:#{SecureRandom.hex(16)}"
       gate = TCPServer.new("127.0.0.1", 0)
       script = File.join(directory, "cache-race.rb")

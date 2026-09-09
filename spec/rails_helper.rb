@@ -21,6 +21,7 @@ if ENV["ADD_AUTH_EJECT_UI"] == "1"
   %i[views controllers javascript mailer_views].each { |kind| ejection.install(kind: kind) }
 end
 require_relative "dummy/config/environment"
+AddAuth.configuration.turbo_enabled = ENV["ADD_AUTH_TURBO"] != "0"
 require "rspec/rails"
 require "generators/add_auth/email_tokens/email_tokens_generator"
 
@@ -50,6 +51,9 @@ RSpec.configure do |config|
     AddAuth.configuration.rate_limit_store.clear
     ActiveJob::Base.queue_adapter.enqueued_jobs.clear
     ActionMailer::Base.deliveries.clear
+    AddAuthMobileHandoff.delete_all if defined?(AddAuthMobileHandoff) && AddAuthMobileHandoff.table_exists?
+    AddAuthExternalTransaction.delete_all if defined?(AddAuthExternalTransaction) && AddAuthExternalTransaction.table_exists?
+    AddAuthExternalIdentity.delete_all if defined?(AddAuthExternalIdentity) && AddAuthExternalIdentity.table_exists?
     AddAuthSecurityEvent.delete_all
     AddAuthCeremony.delete_all
     AddAuthCredential.delete_all

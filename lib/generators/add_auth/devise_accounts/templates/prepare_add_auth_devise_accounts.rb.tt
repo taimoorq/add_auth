@@ -1,0 +1,17 @@
+require "add_auth/rails/migration/key_type"
+
+class PrepareAddAuthDeviseAccounts < ActiveRecord::Migration[8.0]
+  def up
+    AddAuth::Rails::Migration::KeyType.for(connection, :users)
+    add_column :users, :email_address, :string unless column_exists?(:users, :email_address)
+    add_column :users, :password_digest, :string unless column_exists?(:users, :password_digest)
+    add_column :users, :add_auth_password_scheme, :string unless column_exists?(:users, :add_auth_password_scheme)
+    add_column :users, :add_auth_migration_stamp, :string unless column_exists?(:users, :add_auth_migration_stamp)
+    add_column :users, :add_auth_authority, :string, default: "devise", null: false unless column_exists?(:users, :add_auth_authority)
+    add_index :users, :email_address, unique: true unless index_exists?(:users, :email_address, unique: true)
+  end
+
+  def down
+    raise ActiveRecord::IrreversibleMigration, "Retain canonical credentials for the reviewed bridge rollback; retire columns only after reconciliation"
+  end
+end

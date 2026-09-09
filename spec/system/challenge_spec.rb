@@ -52,22 +52,35 @@ RSpec.describe "Challenge browser lifecycle", database: true do
       window.readiness = [];
       window.grecaptcha = {
         ready(callback) { window.readiness.push(callback) },
-        execute(key, {action}) { return Promise.resolve(`proof:${action}:${++window.proofs}`) }
+        execute(key, {action}) { window.proofs++; return Promise.resolve(`proof:${action}:${crypto.randomUUID()}`) }
       };
     JS
     wait_for("window.readiness.length === 2")
     expect(browser).to have_button("Sign in with password", disabled: true)
     browser.execute_script("window.grecaptcha.ready = callback => callback(); window.readiness.forEach(callback => callback())")
     2.times do
+      unless AddAuth.configuration.turbo_enabled
+        browser.execute_script("window.grecaptcha.ready = callback => callback(); window.readiness.forEach(callback => callback())")
+      end
       browser.fill_in "Email address", with: user.email_address
       browser.fill_in "Password", with: "wrong"
+      # A second failure has the same alert text. Wait for this submission's
+      # replacement form before reading controls from the previous document.
+      browser.execute_script('document.getElementById("add_auth-password-form").dataset.pendingSubmission = "true"')
       browser.click_button "Sign in with password"
+      wait_for('document.getElementById("add_auth-password-form")?.dataset.pendingSubmission === undefined')
       expect(browser).to have_css('[role="alert"]', text: "Email or password is incorrect")
       expect(browser).to have_field("Password", with: "")
       expect(browser).to have_field("Email address", with: user.email_address)
-      expect(browser).to have_button("Sign in with password", disabled: false)
+      if AddAuth.configuration.turbo_enabled
+        expect(browser).to have_button("Sign in with password", disabled: false)
+      else
+        wait_for("window.readiness.length === 2")
+        browser.execute_script("window.grecaptcha.ready = callback => callback(); window.readiness.forEach(callback => callback())")
+        expect(browser.evaluate_script("typeof window.Turbo")).to eq("undefined")
+      end
     end
-    expect(browser.evaluate_script("window.proofs")).to eq(2)
+    expect(browser.evaluate_script("window.proofs")).to eq(AddAuth.configuration.turbo_enabled ? 2 : 0)
     browser.fill_in "Email me a sign-in link", with: user.email_address
     browser.click_button "Send sign-in link"
     expect(browser).to have_text("Check your email")
@@ -95,9 +108,10 @@ RSpec.describe "Challenge browser lifecycle", database: true do
       browser.fill_in "Password", with: "wrong"
       browser.click_button "Sign in with password"
       expect(browser).to have_css('[role="alert"]', text: "Email or password is incorrect")
-      wait_for("window.widgets.length === 4")
+      widget_count = AddAuth.configuration.turbo_enabled ? 4 : 2
+      wait_for("window.widgets.length === #{widget_count}")
       expect(browser).to have_button("Sign in with password", disabled: true)
-      browser.execute_script('window.widgets[2].options.callback("proof:sign_in:2")')
+      browser.execute_script("window.widgets[#{widget_count - 2}].options.callback('proof:sign_in:2')")
       browser.fill_in "Password", with: "correct-password"
       browser.click_button "Sign in with password"
       expect(browser).to have_text("Signed in")
@@ -114,14 +128,24 @@ RSpec.describe "Challenge browser lifecycle", database: true do
     browser.fill_in "Password", with: "correct-password"
     browser.click_button "Sign in with password"
     wait_for("window.pendingProofs.length === 1")
-    browser.execute_script('window.Turbo.visit("/sign-in?retry=1")')
+    if AddAuth.configuration.turbo_enabled
+      browser.execute_script('window.Turbo.visit("/sign-in?retry=1")')
+    else
+      browser.execute_script('window.location.assign("/sign-in?retry=1")')
+    end
     expect(browser).to have_current_path("/sign-in?retry=1")
     expect(browser).to have_field("Password", with: "")
-    browser.execute_script('window.pendingProofs[0]("proof:sign_in:old")')
+    browser.execute_script('window.pendingProofs[0]("proof:sign_in:old")') if AddAuth.configuration.turbo_enabled
     expect(browser).to have_button("Sign in with password", disabled: false)
     expect(Session.count).to eq(0)
     browser.execute_script('document.querySelectorAll("[name=challenge_token]").forEach(field => field.value = "sensitive"); document.dispatchEvent(new Event("turbo:before-cache"))')
     expect(browser.evaluate_script('Array.from(document.querySelectorAll("[name=challenge_token]")).every(field => field.value === "")')).to be(true)
+    # Browsers also cache ordinary page navigation. Restoration must replace a
+    # live challenge with a new widget and ignore its prior completion callback.
+    browser.execute_script('document.querySelectorAll("[name=challenge_token]").forEach(field => field.value = "sensitive"); window.dispatchEvent(new PageTransitionEvent("pagehide", {persisted: true}))')
+    expect(browser.evaluate_script('Array.from(document.querySelectorAll("[name=challenge_token]")).every(field => field.value === "")')).to be(true)
+    browser.execute_script('window.dispatchEvent(new PageTransitionEvent("pageshow", {persisted: true}))')
+    expect(browser).to have_button("Sign in with password", disabled: false)
   end
 
   it "gives an honest server rejection with JavaScript disabled" do

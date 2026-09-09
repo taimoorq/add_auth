@@ -5,10 +5,11 @@ module AddAuth
     # Account policy survives feature toggles; disabling passkeys cannot restore
     # weaker access to an account that explicitly adopted strict policy.
     class AccessPolicy
-      def initialize(credentials:, passkeys_enabled:, email_enabled:, trusted_recovery_address:, password_enabled: true)
+      def initialize(credentials:, passkeys_enabled:, email_enabled:, trusted_recovery_address:, password_enabled: true, external_enabled: false, external_current: nil)
         @credentials, @passkeys_enabled, @email_enabled = credentials, passkeys_enabled, email_enabled
         @trusted_recovery_address = trusted_recovery_address
         @password_enabled = password_enabled
+        @external_enabled, @external_current = external_enabled == true, external_current
       end
 
       def strict?(user) = user.respond_to?(:add_auth_strict) && user.add_auth_strict == true
@@ -20,6 +21,7 @@ module AddAuth
         when :password then @password_enabled && user.respond_to?(:password_digest) && user.password_digest.is_a?(String) && !user.password_digest.empty?
         when :email_link then @email_enabled
         when :passkey then @passkeys_enabled
+        when :external_identity then @external_enabled
         else false
         end
       end
@@ -41,8 +43,16 @@ module AddAuth
         credential && credential.user_id == user.id && !credential.revoked_at
       end
 
+      def external_credential_current?(user:, id:, version:)
+        @external_enabled && @external_current && @external_current.call(user: user, id: id, version: version) == true
+      end
+
       def session_allowed?(user, row)
         return false if row.respond_to?(:authentication_policy_version) && row.authentication_policy_version != version(user)
+        if row.authenticated_with == "external_identity"
+          return false unless row.respond_to?(:authentication_external_id) &&
+            external_credential_current?(user: user, id: row.authentication_external_id, version: row.authentication_external_version)
+        end
         if row.authenticated_with == "passkey"
           return false unless row.authentication_uv && credential_current?(user: user, id: row.authentication_credential_id)
         end

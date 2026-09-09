@@ -1,0 +1,22 @@
+<h1 id="add_auth-title">External sign-in methods</h1>
+<% if @error %><p class="<%= add_auth_class(:notice) %>" role="alert"><%= @error %></p><% end %>
+<p>Add another way to sign in. You’ll verify your account before linking or removing a provider.</p>
+<% @providers.each do |provider| %>
+  <%= form_with url: "/account/external-identities/providers/#{provider.middleware_name}", method: :post, data: add_auth_challenge_form_data(:provider).merge(turbo: false) do |form| %>
+    <%= add_auth_challenge_tag :provider, id: "link_#{provider.middleware_name}" %>
+    <%= form.submit "Link #{provider.label}", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+  <% end %>
+<% end %>
+<% @identities.each do |identity| %>
+  <% provider = @providers.find { |item| item.configuration.id == identity.provider_id } %>
+  <section id="external_identity_<%= identity.id %>">
+    <h2><%= provider&.label || "External provider" %></h2>
+    <p>Linked <%= identity.linked_at.strftime("%Y-%m-%d") %>.</p>
+    <details>
+      <summary>Remove this sign-in method</summary>
+      <p>Keep another usable sign-in method before removing this one.</p>
+      <%= button_to "Confirm removal", "/account/external-identities/#{identity.id}", method: :delete, form: {data: {turbo: false}} %>
+    </details>
+  </section>
+<% end %>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>

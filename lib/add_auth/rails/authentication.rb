@@ -27,7 +27,7 @@ module AddAuth
       end
 
       def add_auth_session_hints
-        {user_agent: request.user_agent.to_s.truncate_bytes(512), ip_address: request.remote_ip}
+        {user_agent: request.user_agent.to_s.truncate_bytes(512), ip_address: request.remote_ip, remember: params[:remember] == "1"}
       end
 
       def add_auth_replacement_session

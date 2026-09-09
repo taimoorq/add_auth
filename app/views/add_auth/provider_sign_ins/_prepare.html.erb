@@ -1,0 +1,7 @@
+<h1 id="add_auth-title"><%= @heading %></h1>
+<p class="<%= add_auth_class(:muted) %>">You will continue to <%= @provider.label %> to verify this request.</p>
+<%= form_with url: @provider_path, method: :post, authenticity_token: false, data: {turbo: false} do |form| %>
+  <%= hidden_field_tag @omniauth_csrf_parameter, @omniauth_csrf_token %>
+  <%= form.submit "Continue with #{@provider.label}", class: add_auth_class(:button) %>
+<% end %>
+<p><%= link_to "Cancel", "/sign-in" %></p>

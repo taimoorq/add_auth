@@ -8,5 +8,12 @@
   <h1 id="add_auth-title">Your sessions</h1>
   <p class="<%= add_auth_class(:muted) %>">Review browsers signed in to your account and revoke any you no longer use.</p>
   <p><%= link_to "Sign out everywhere", "/sessions/revoke-all", class: add_auth_class(:link) %></p>
+  <% if AddAuth.configuration.lifecycle.enabled %>
+    <p><%= link_to "Change email", "/account/email" %> · <%= link_to "Change password", "/account/password" %> · <%= link_to "Delete account", "/account/delete" %></p>
+  <% end %>
   <div id="add_auth-session-content"><%= render "add_auth/sessions/list" %></div>
 </main>
+
+<% if AddAuth.configuration.external_identities.enabled %>
+  <p><%= link_to "Manage sign-in providers", "/account/external-identities" %></p>
+<% end %>

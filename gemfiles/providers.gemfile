@@ -1,0 +1,4 @@
+# frozen_string_literal: true
+
+# Convenient default; the supported matrix uses each explicit Rails profile.
+eval_gemfile "providers_rails_8_1.gemfile"

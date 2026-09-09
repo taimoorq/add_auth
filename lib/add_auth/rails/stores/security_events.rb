@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "add_auth/rails/stores/delivery_state"
+require "add_auth/rails/stores/commit_dispatch"
 
 module AddAuth
   module Rails
@@ -16,12 +17,8 @@ module AddAuth
         def append(user:, **attributes)
           raise AddAuth::Error, "security notifications must join the account transaction" unless @users.current_transaction.open?
           event = @events.create!(**attributes, user_id: user.id)
-          @users.current_transaction.after_commit do
-            job = ::AddAuth::SecurityNotificationJob.perform_later(event.id)
-            raise AddAuth::Error unless job
-          rescue
-            ActiveSupport::Notifications.instrument("notification_enqueue_failed.add_auth", event_id: event.id)
-          end
+          CommitDispatch.enqueue(transaction: @users.current_transaction, job: ::AddAuth::SecurityNotificationJob,
+            id: event.id, failure_event: "notification_enqueue_failed.add_auth", payload: {event_id: event.id})
           event
         end
 

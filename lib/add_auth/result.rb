@@ -16,6 +16,7 @@ module AddAuth
       consumed_token revoked_token challenge_rejected
       challenge_unavailable rate_limited origin_mismatch
       counter_regression elevation_required
+      identity_unbound identity_conflict last_credential
     ].freeze
 
     attr_reader :user, :strategy, :credential, :reason, :session, :grant

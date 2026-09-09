@@ -1,0 +1,12 @@
+<% content_for :title, "Create an account" %>
+<h1 id="add_auth-title">Create an account with <%= @provider.label %></h1>
+<p>Enter your email, then continue to your provider. We’ll email you a separate confirmation link before you can sign in.</p>
+<%= form_with url: "/account/sign-up/providers/#{@provider.middleware_name}", method: :post, data: add_auth_challenge_form_data(:register).merge(turbo: false) do |form| %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :email_address, "Email address" %>
+    <%= form.email_field :email_address, required: true, maxlength: 254, autocomplete: "email", class: add_auth_class(:input) %>
+  </div>
+  <%= add_auth_challenge_tag :register %>
+  <%= form.submit "Continue with #{@provider.label}", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+<% end %>
+<p><%= link_to "Already have an account? Sign in", "/sign-in" %></p>

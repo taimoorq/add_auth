@@ -1,0 +1,5 @@
+<% content_for :title, "Request a new link" %>
+<h1 id="add_auth-title">Request a new link</h1>
+<p>This link is unavailable, expired, or already used. Request a new link to finish your account update.</p>
+<p><%= link_to "Request another link", "/account/requests/#{@purpose}" %></p>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>

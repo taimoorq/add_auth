@@ -15,6 +15,8 @@ Gem::Specification.new do |spec|
     reauthentication and recovery. It adds hardened sessions, security mail and
     challenge providers, with shared Turbo/HTML pages and permitted no-JavaScript
     alternatives. It upgrades the generated User and Session models in place.
+    Optional account lifecycle, Devise migration, provider-library integration
+    and finite native sessions share the same account and session policies.
     Documentation: https://addauthgem.com.
   DESC
   spec.homepage = "https://addauthgem.com"

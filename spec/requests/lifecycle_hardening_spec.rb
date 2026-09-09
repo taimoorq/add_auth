@@ -23,6 +23,42 @@ RSpec.describe "Authentication lifecycle hardening", type: :request, database: t
     post path, params: {email_address: email, password: password, authenticity_token: csrf}
   end
 
+  it "emits a minimal committed sign-in event and tolerates a failing optional observer" do
+    events = []
+    committed = []
+    observer = ActiveSupport::Notifications.subscribe("session_created.add_auth") do |*arguments|
+      payload = arguments.last
+      events << payload
+      committed << (!User.connection.transaction_open? && Session.exists?(payload.fetch(:session_id)))
+      raise "synthetic tracking failure"
+    end
+    password_sign_in
+    expect(response.status).to eq(303)
+    expect(events.length).to eq(1)
+    expect(committed).to eq([true])
+    expect(events.first.keys).to contain_exactly(:user_id, :session_id, :method, :occurred_at)
+    expect(events.first[:user_id]).to eq(user.id)
+    expect(events.first[:method]).to eq("password")
+    Current.reset
+    get "/"
+    expect(response.status).to eq(200)
+  ensure
+    ActiveSupport::Notifications.unsubscribe(observer) if observer
+  end
+
+  it "does not emit sign-in events for a rolled-back session" do
+    events = []
+    observer = ActiveSupport::Notifications.subscribe("session_created.add_auth") { |*arguments| events << arguments.last }
+    rollback = -> { throw :abort }
+    Session.set_callback(:create, :before, rollback)
+    expect { runtime.sessions.start(user: user, method: :password) }.to raise_error(ActiveRecord::RecordNotSaved)
+    expect(Session.count).to eq(0)
+    expect(events).to be_empty
+  ensure
+    Session.skip_callback(:create, :before, rollback) if rollback
+    ActiveSupport::Notifications.unsubscribe(observer) if observer
+  end
+
   %w[/session /sign-in/password].each do |path|
     it "rejects a replaced cookie after re-login and logout through #{path}" do
       password_sign_in(path)

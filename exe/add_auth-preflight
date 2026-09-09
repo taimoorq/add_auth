@@ -1,0 +1,26 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+require "add_auth/migration/static_inventory"
+
+options = {root: Dir.pwd}
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: add_auth-preflight [--root PATH] (static inspection; does not boot Rails)"
+  opts.on("--root PATH", "Host source directory") { |value| options[:root] = value }
+  opts.on("-h", "--help") {
+    puts opts
+    exit
+  }
+end
+begin
+  parser.parse!
+  raise OptionParser::InvalidArgument unless ARGV.empty?
+  report = AddAuth::Migration::StaticInventory.new(**options).call
+  puts JSON.pretty_generate(report)
+  exit(report.dig(:facts, :complete) ? 0 : 2)
+rescue OptionParser::ParseError, SystemCallError, ArgumentError
+  warn "Unable to inspect source. Supply a readable host directory with --root; see --help."
+  exit 2
+end

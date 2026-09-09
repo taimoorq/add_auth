@@ -1,0 +1,6 @@
+<% content_for :title, "Delete your account" %>
+<h1 id="add_auth-title">Delete your account</h1>
+<p>Your account will be deleted and all sessions signed out. Verify it’s you, then return here to confirm.</p>
+<% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
+<%= button_to "Delete my account", "/account", method: :delete, class: add_auth_class(:button), form: {data: {turbo_frame: "_top"}} %>
+<p><%= link_to "Keep my account", "/sessions" %></p>

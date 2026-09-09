@@ -1,7 +1,9 @@
+require "add_auth/rails/migration/key_type"
+
 class CreateAddAuthSecurityEvents < ActiveRecord::Migration[8.0]
   def change
     create_table :add_auth_security_events do |t|
-      t.references :user, foreign_key: {on_delete: :nullify}
+      t.references :user, type: AddAuth::Rails::Migration::KeyType.for(connection, :users), foreign_key: {on_delete: :nullify}
       t.string :kind, null: false
       t.string :digest, null: false
       t.text :delivery_payload

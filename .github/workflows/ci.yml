@@ -12,6 +12,16 @@ jobs:
   test:
     name: "Ruby ${{ matrix.ruby }}"
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: add_auth_external_test
+          POSTGRES_PASSWORD: test-only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d add_auth_external_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
     strategy:
       fail-fast: false
       matrix:
@@ -26,8 +36,10 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Fetch the published upgrade baseline
-        run: gem fetch add_auth --version 0.2.1
+      - name: Fetch the published upgrade baselines
+        run: |
+          gem fetch add_auth --version 0.2.1
+          gem fetch add_auth --version 0.2.2
       - name: Run specs and package upgrades on both supported Rails lines
         run: |
           for rails in 8_0 8_1; do
@@ -35,8 +47,26 @@ jobs:
             bundle install
             bundle exec rspec
             ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-            ADD_AUTH_BASELINE_GEM="$GITHUB_WORKSPACE/add_auth-0.2.1.gem" bundle exec rspec spec/upgrade/published_package.rb
+            ADD_AUTH_TURBO=0 bundle exec rspec spec/system
+            ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
+            for baseline in 0.2.1 0.2.2; do
+              ADD_AUTH_BASELINE_GEM="$GITHUB_WORKSPACE/add_auth-${baseline}.gem" bundle exec rspec spec/upgrade/published_package.rb
+            done
           done
+      - name: Optional Devise migration and provider-library acceptance
+        run: |
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec spec/migration/*.rb
+            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/account_lifecycle.rb
+            export BUNDLE_GEMFILE="$PWD/gemfiles/providers_rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec spec/providers/*.rb
+            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/providers/google_sign_in.rb spec/providers/apple_form_post.rb spec/providers/microsoft_browser.rb spec/providers/apple_native_host.rb
+          done
+        env:
+          ADD_AUTH_MICROSOFT_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
       - name: Lint
         run: bundle exec standardrb
 
@@ -70,6 +100,30 @@ jobs:
           done
         env:
           ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
+      - name: Populated Devise migration and external enrollment on PostgreSQL
+        run: |
+          ruby -rpg -e 'PG.connect(dbname: "postgres").exec("CREATE DATABASE add_auth_external_test")'
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec spec/migration/devise_source.rb spec/migration/account_adoption.rb spec/migration/source_bridge.rb spec/migration/account_lifecycle.rb spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
+            ADD_AUTH_EXTERNAL_DATABASE_URL="postgresql://postgres:test-only@localhost:5432/add_auth_external_test" bundle exec rspec spec/migration/external_enrollment.rb spec/generators/external_identities_generator_spec.rb
+          done
+        env:
+          PGUSER: postgres
+          PGPASSWORD: test-only
+          PGHOST: localhost
+          ADD_AUTH_MIGRATION_POSTGRES: "1"
+
+      - name: Native Apple single-use request races on PostgreSQL
+        run: |
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/providers_rails_${rails}.gemfile"
+            bundle install
+            bundle exec rspec spec/providers/apple_native.rb
+          done
+        env:
+          ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
 
   audit:
     name: Dependency audit
@@ -85,6 +139,8 @@ jobs:
           gem install bundler-audit
           bundler-audit check --update
           for rails in 8_0 8_1; do
-            BUNDLE_GEMFILE="gemfiles/rails_${rails}.gemfile" bundle install
-            bundler-audit check --gemfile-lock "gemfiles/rails_${rails}.gemfile.lock"
+            for profile in rails devise_rails providers_rails; do
+              BUNDLE_GEMFILE="gemfiles/${profile}_${rails}.gemfile" bundle install
+              bundler-audit check --gemfile-lock "gemfiles/${profile}_${rails}.gemfile.lock"
+            done
           done

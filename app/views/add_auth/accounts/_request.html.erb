@@ -1,0 +1,14 @@
+<% title = {"confirm" => "Confirm your email", "reset_password" => "Reset your password", "unlock" => "Unlock your account"}.fetch(@purpose) %>
+<% content_for :title, title %>
+<h1 id="add_auth-title"><%= title %></h1>
+<p class="<%= add_auth_class(:muted) %>">Enter your account email address to request a secure link.</p>
+<% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
+<%= form_with url: "/account/requests/#{@purpose}", data: add_auth_challenge_form_data(:account_request) do |form| %>
+  <div class="<%= add_auth_class(:field) %>">
+    <%= form.label :email_address, "Email address" %>
+    <%= form.email_field :email_address, required: true, maxlength: 254, autocomplete: "email", value: (params[:email_address] if params[:email_address].is_a?(String)), class: add_auth_class(:input) %>
+  </div>
+  <%= add_auth_challenge_tag :account_request %>
+  <%= form.submit "Send account link", class: add_auth_class(:button), data: {add_auth_challenge_target: "submit"} %>
+<% end %>
+<p><%= link_to "Back to sign in", "/sign-in" %></p>

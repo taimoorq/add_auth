@@ -1,0 +1,7 @@
+<%= @instruction %>
+
+Open this link, then use the button on the page to confirm your request:
+<%= @url %>
+
+This link expires in <%= AddAuth.configuration.lifecycle.proof_lifetime.to_i / 60 %> minutes and can be used once.
+If you did not request this message, you can ignore it.

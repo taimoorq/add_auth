@@ -4,16 +4,17 @@ AddAuth extends Rails 8's authentication generator with email-link sign-in,
 passkeys, purpose-bound reauthentication, hardened sessions and pluggable captcha.
 It reuses the host's accounts and Session model.
 
-**Reviewed 2026-09-09: 0.2.2 is published, and the planned v1 strategy features
-have shipped.** The bounded Devise migration and native additions below are locally verified
-and selected for 0.3.0. The future 1.0 support commitment remains separate. Milestones below describe priorities, not promised dates or
-versions. See [release status](https://addauthgem.com/release-status/),
-[the changelog](CHANGELOG.md) and [the manual](https://addauthgem.com/).
+**Reviewed 2026-09-09: [0.3.0 is published and verified](https://github.com/taimoorq/add_auth/releases/tag/v0.3.0).**
+It adds the bounded Devise migration, optional account lifecycle, provider-library
+integration and finite native authentication below. Required PR and exact
+release-commit CI/CodeQL, protected OIDC publication, downloaded-package comparison
+and fresh-host installation passed. The matching migration and native guides are
+published in [the manual](https://addauthgem.com/).
 
-**[0.2.2 is published and verified](https://github.com/taimoorq/add_auth/releases/tag/v0.2.2).**
-It contains the counter-store correction and upgrade/operations coverage below.
-The registry package passes fresh-host installation and the matching manual is
-live. The owner selected this patch before accepting the proposed 1.0 commitment.
+The original strategy baseline shipped in 0.2.1; 0.2.2 supplied the counter-store
+correction. The separate 1.0 support commitment remains under review. Milestones
+describe priorities, not promised dates. See [release status](https://addauthgem.com/release-status/)
+and [the changelog](CHANGELOG.md).
 
 An unchecked item is remaining work; deferred candidates need a scope decision
 before implementation. Checked features have passing relevant acceptance specs.
@@ -22,7 +23,7 @@ can describe tested local work; release/publication remains a separate gate. Det
 design and decision records remain in the companion private planning workspace;
 this public checklist is derived from its section 14 and stands on its own.
 
-## Now — maintain 0.2 and learn from adoption
+## Now — maintain 0.3 and learn from adoption
 
 - [x] **R1 · Resolve the outstanding dependency update.**
       [PR #9](https://github.com/taimoorq/add_auth/pull/9) updates the immutable
@@ -52,7 +53,7 @@ passwordless-fixture isolation failure is fixed in
 [PR #8](https://github.com/taimoorq/add_auth/pull/8); it is not an open runtime
 defect or a reason by itself to republish 0.2.1.
 
-## Next — prove upgrades, plan migrations and define the 1.0 contract
+## Roadmap — migration delivery and the future 1.0 contract
 
 - [x] **R3 · Rehearse an upgrade from published 0.2.1.** Start with a populated
       host, active sessions, passkeys, strict accounts, pending mail and customized
@@ -114,26 +115,25 @@ defect or a reason by itself to republish 0.2.1.
       supported database/runtime, ordinary HTML with JavaScript and Turbo absent,
       Turbo enhancement and permitted no-JS journeys. Draft step-by-step guides
       and prove the destination works with Devise removed.
-- [ ] **R8 · Publish migration and native guides with the feature release.**
-      Verify the released package, installation commands, HTTPS and deep links;
-      keep development guides explicitly unpublished until then.
+- [x] **R8 · Publish migration and native guides with the feature release.**
+      The 0.3.0 package, installation commands, HTTPS and deep links are verified;
+      the six guides now describe the published release.
 
-Local development has verified preflight, optional account lifecycle and
+Version 0.3.0 verifies preflight, optional account lifecycle and
 provider-library integration across the supported Ruby/Rails matrix, including
-ordinary HTML, Turbo and permitted no-JS journeys. These additions are
-unpublished. Migration/checkpoint/compatible-rollback tests and native client
+ordinary HTML, Turbo and permitted no-JS journeys. These additions ship in 0.3.0. Migration/checkpoint/compatible-rollback tests and native client
 acceptance are complete locally. The full adopter suite passes 1,330 examples
 with zero failures and three existing empty scaffold examples pending. Six
-development guides pass build, browser, keyboard and no-JS checks. Publication
-and the proposed 1.0 commitment remain separate gates.
+published guides pass build, browser, keyboard and no-JS checks. The proposed
+1.0 commitment remains a separate gate.
 
-## Locally verified — Android and iOS login
+## Shipped in 0.3.0 — Android and iOS login
 
-Mobile support is now part of the active migration implementation. It is not available in the published gem. These capabilities extend the
+Mobile support ships as an optional integration in 0.3.0. These capabilities extend the
 same account and session policies. The verified finite profile uses explicit
 30-day absolute and 14-day idle limits, with fresh sign-in after expiry. Renewable
-refresh-token families remain a distinct optional capability, currently disabled.
-The owner selected 0.3.0; publication and package verification remain pending.
+refresh-token families remain a distinct optional capability, not implemented in this release.
+The published 0.3.0 package and installed native-consumer contracts are verified.
 
 - [x] **R8 · Password and provider login for native clients.** Return credentials
       over authenticated HTTPS responses; preserve supported client contracts.
@@ -152,15 +152,15 @@ The owner selected 0.3.0; publication and package verification remain pending.
 Each change owns its tests and keeps intermediate releases usable. R3/R4 findings
 feed R5. A patch may address compatible corrections; another 0.x minor is possible
 if integration contracts change. A 0.3 release is not a prerequisite for 1.0.
-R8 follows the published 0.2.2 correction; its supported source profiles
+R8 ships in 0.3.0 after the published 0.2.2 correction; its supported source profiles
 are bounded to the verified Devise 5.0.4 fixtures. The selected delivery version is 0.3.0. Its pre-1.0 integration contracts
-remain subject to review before R5 freezes. Devise migration support is not available yet.
+remain subject to review before R5 freezes. The bounded Devise migration guide is available for 0.3.0.
 
 ## Delivery — 0.3.0 feature release, then the proposed 1.0 gate
 
 - [x] Select 0.3.0 for the locally verified migration, lifecycle, provider and native scope.
-- [ ] Pass required PR and exact default-branch CI/CodeQL for 0.3.0.
-- [ ] Publish 0.3.0 through protected OIDC and verify the downloaded package and manual.
+- [x] Pass required PR and exact default-branch CI/CodeQL for 0.3.0.
+- [x] Publish 0.3.0 through protected OIDC and verify the downloaded package and manual.
 
 - [x] **R6 · Deliver the 0.2.2 correction.**
       [PR #10](https://github.com/taimoorq/add_auth/pull/10) passed all required
@@ -172,7 +172,7 @@ remain subject to review before R5 freezes. Devise migration support is not avai
 - [ ] **R6 · Finish the adoption and compatibility review.** R1–R5 findings are
       completed or explicitly dispositioned, the supported API is accepted, and
       the published-package upgrade and documented operations profile pass.
-- [ ] **R6 · Verify the exact candidate.** Preserve the complete local
+- [ ] **R6 · Verify the exact 1.0 candidate.** Preserve the complete local
       Ruby/Rails, SQLite/PostgreSQL, generated/ejected browser and operations
       acceptance; resolve release-blocking security and upgrade findings.
       Recheck dependency currency and pass required GitHub CI/CodeQL controls.
@@ -213,13 +213,13 @@ compatible extension could ship in 1.x after an explicit scope decision.
       are promoted to R8 above; broader module parity remains outside this scope.
 - [ ] **F4 · Multiple realms.** Require a concrete identity/session-isolation need
       and migration design before adding models, cookies or routing APIs.
-- [ ] **F4 · API/token authentication.** Android/iOS login is the active R8
-      work above; multiple realms and general API-key management remain separate.
+- [ ] **F4 · API/token authentication.** Android/iOS login shipped under R8
+      above; multiple realms and general API-key management remain separate.
 - [ ] **F5 · Standalone test helpers or challenge adapters.** Extract only if
       independent demand and maintenance capacity justify another package;
       retain one implementation per concern.
 
-Optional provider-library integration is locally verified under R8. SMS/TOTP and enterprise
+Optional provider-library integration ships under R8 in 0.3.0. SMS/TOTP and enterprise
 or cross-origin WebAuthn remain outside the current roadmap. Account roles,
 invitations, authorization and email branding
 stay with the host.

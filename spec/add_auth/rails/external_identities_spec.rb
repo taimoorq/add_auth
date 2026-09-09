@@ -9,6 +9,15 @@ require "add_auth/core/passwords/legacy_bcrypt"
 require "webauthn/fake_client"
 
 RSpec.describe AddAuth::Core::ExternalIdentities, database: true do
+  include ActiveSupport::Testing::TimeHelpers
+
+  # Host model callbacks and the injected Core clock must share an instant.
+  # Otherwise a slow run can move the real revocation cutoff beyond a fixture's
+  # later simulated callback and correctly reject what the example calls new.
+  around do |example|
+    travel_to(now) { example.run }
+  end
+
   let(:now) { Time.now.change(usec: 0) }
   let(:clock) { double(now: now) }
   let(:digest) { AddAuth.configuration.session_token_digest }
@@ -366,13 +375,14 @@ RSpec.describe AddAuth::Core::ExternalIdentities, database: true do
   end
 
   it "keeps pre-disable callbacks invalid after re-enable" do
-    link
+    identity = link.credential
     proof = evidence(transaction)
     store.with_user(id: user.id) do |account|
       account.update!(email_address: "disabled@example.test")
       authority.revoke(user_id: account.id, at: now)
     end
     store.with_user(id: user.id) { |account| account.update!(email_address: "owner@example.test") }
+    expect(identity.reload.invalidated_at).to eq(now)
     expect(service.sign_in(evidence: proof).reason).to eq(:invalid_credentials)
     allow(clock).to receive(:now).and_return(now + 1)
     expect(service.sign_in(evidence: evidence(transaction))).to be_success

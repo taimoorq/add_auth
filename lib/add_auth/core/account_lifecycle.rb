@@ -16,6 +16,7 @@ module AddAuth
       class Conflict < StandardError; end
       class InvalidPassword < StandardError; end
       class DeletionRejected < StandardError; end
+      class RegistrationRejected < StandardError; end
 
       class NewAccount
         attr_reader :user, :user_id
@@ -44,9 +45,21 @@ module AddAuth
         @external_identities = external_identities
       end
 
-      def register(identifier:, password:, profile: {})
+      def register(identifier:, password:, profile: {}, replacing: nil, user_agent: nil, ip_address: nil, remember: false)
         return failure unless valid_new_password?(password)
-        register_account(identifier: identifier, password: password, profile: profile)
+        register_account(identifier: identifier, password: password, profile: profile,
+          immediate: !@policy.confirmation_required?, replacing: replacing,
+          session_hints: {user_agent: user_agent, ip_address: ip_address, remember: remember})
+      end
+
+      # Generic non-grant result mapping; never authenticate a duplicate result.
+      def registration_next_path
+        @policy.confirmation_required? ? "/account/check-email" : "/sign-in"
+      end
+
+      def registration_instructions
+        @policy.confirmation_required? ? "We’ll email you a link to confirm your address before you sign in." :
+          "Create your account and sign in right away. Your email address stays unverified until you confirm it."
       end
 
       def register_external(identifier:, evidence:, profile: {})
@@ -98,7 +111,7 @@ module AddAuth
               @notify.call(user: user, kind: :email_changed, at: now, recipient: pending)
             else
               @store.update_account(user: user, confirmed_at: now)
-              @store.provision(user: user)
+              provision_account(user)
             end
           when "reset_password"
             next failure unless valid_new_password?(password)
@@ -165,19 +178,47 @@ module AddAuth
 
       private
 
-      def register_account(identifier:, password:, profile:)
+      def register_account(identifier:, password:, profile:, immediate: false, replacing: nil, session_hints: {})
         email = normalize(identifier)
         return failure unless email && profile.is_a?(Hash) && profile.length <= 20
         attributes = @profile_attributes.call(profile)
         profile_valid = attributes.is_a?(Hash) && attributes.keys.all? { |name| (name.is_a?(String) || name.is_a?(Symbol)) && !SECURITY_ATTRIBUTES.include?(name.to_s) && !name.to_s.start_with?("add_auth_") }
         raise AddAuth::Error, "registration profile must contain host profile fields only" unless profile_valid
-        outcome = @store.create_account(email: email, password: password, profile: attributes) do |user|
+        registered = nil
+        outcome = @store.create_account(email: email, password: password, profile: attributes, replacing: replacing) do |user|
           raise Conflict unless @policy.allowed?(user, purpose: :confirm)
           yield user if block_given?
           @store.claim_address(user: user, digest: address_digest(email), address: email, state: "current")
-          issue_in_transaction(user: user, purpose: "confirm", recipient: email)
+          if immediate
+            raise AddAuth::Error, "optional confirmation requires sessions and the provisioning migration" unless @sessions && user.respond_to?(:add_auth_provisioned_at)
+            raise RegistrationRejected unless @policy.allowed?(user)
+            password_version = user.password_digest
+            provision_account(user)
+            unless user.email_address == email && user.password_digest == password_version && !user.confirmed_at && user.unconfirmed_email.to_s.empty?
+              raise RegistrationRejected
+            end
+            grant = nil
+            @store.finalize_session(user: user) do |writer|
+              grant = @sessions.create_in_transaction(user: user, method: :password, persist: writer, replacing: replacing, **session_hints)
+              raise RegistrationRejected unless grant
+              grant.session
+            end
+            registered = Result.success(user: user, strategy: :password, session: grant.session, grant: grant)
+          else
+            issue_in_transaction(user: user, purpose: "confirm", recipient: email)
+          end
         end
-        (outcome == :invalid) ? failure : accepted
+        return failure if outcome == :invalid
+        (outcome == :created && registered) || accepted
+      rescue RegistrationRejected
+        failure
+      end
+
+      def provision_account(user)
+        tracked = user.respond_to?(:add_auth_provisioned_at)
+        return if tracked && user.add_auth_provisioned_at
+        @store.provision(user: user)
+        @store.update_account(user: user, add_auth_provisioned_at: @clock.now) if tracked
       end
 
       def with_account_change(user:, session:, purpose:)
@@ -203,7 +244,10 @@ module AddAuth
       def recipient_for(user, purpose)
         if purpose == "confirm"
           normalize(user.unconfirmed_email.to_s.empty? ? user.email_address : user.unconfirmed_email)
+        elsif purpose == "reset_password" && @policy.unconfirmed_reset?(user)
+          normalize(user.email_address)
         else
+          return unless @policy.trusted_address?(user)
           address = normalize(@trusted_address.call(user))
           address if address == normalize(user.email_address)
         end

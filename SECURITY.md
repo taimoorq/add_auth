@@ -36,7 +36,9 @@ mailing list, or social media) until a fix has been released.
   scoping, eligibility rechecks and active-delivery-lease protection.
 - Optional account lifecycle and migration boundaries: credential
   profile selection, source-write fencing, address ownership, account proofs,
-  policy and revocation. These capabilities are introduced in 0.3.0.
+  policy and revocation. These capabilities are introduced in 0.3.0; 0.4.0 adds
+  optional confirmation, atomic signup provisioning/session issuance and the
+  independent unconfirmed-password-reset policy.
 - Optional provider identity binding and mobile sessions/handoffs, including
   nonce/client/purpose binding, exact callbacks, single use and bearer/cookie
   separation. Provider protocol cryptography remains library-owned.

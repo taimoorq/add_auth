@@ -14,7 +14,7 @@ updates:
       webauthn:
         patterns: ["webauthn", "public_suffix", "cose", "cbor", "bindata"]
       rails:
-        patterns: ["rails", "railties", "activesupport", "activemodel", "actionpack", "activerecord", "actionmailer", "activejob", "turbo-rails", "stimulus-rails"]
+        patterns: ["rails", "railties", "activesupport", "activemodel", "actionpack", "activerecord", "actionmailer", "activejob", "turbo-rails", "stimulus-rails", "json"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

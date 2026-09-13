@@ -46,6 +46,7 @@ jobs:
             export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
             bundle install
             bundle exec rspec
+            bundle exec rspec spec/upgrade/confirmation_policy.rb
             ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
             ADD_AUTH_TURBO=0 bundle exec rspec spec/system
             ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
@@ -59,7 +60,7 @@ jobs:
             export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
             bundle install
             bundle exec rspec spec/migration/*.rb
-            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/account_lifecycle.rb
+            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/account_lifecycle.rb spec/migration/optional_confirmation.rb spec/generators/optional_confirmation_generator_spec.rb
             export BUNDLE_GEMFILE="$PWD/gemfiles/providers_rails_${rails}.gemfile"
             bundle install
             bundle exec rspec spec/providers/*.rb
@@ -106,7 +107,8 @@ jobs:
           for rails in 8_0 8_1; do
             export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
             bundle install
-            bundle exec rspec spec/migration/devise_source.rb spec/migration/account_adoption.rb spec/migration/source_bridge.rb spec/migration/account_lifecycle.rb spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
+            bundle exec rspec spec/migration/devise_source.rb spec/migration/account_adoption.rb spec/migration/source_bridge.rb spec/migration/account_lifecycle.rb spec/migration/optional_confirmation.rb spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
+            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/optional_confirmation.rb
             ADD_AUTH_EXTERNAL_DATABASE_URL="postgresql://postgres:test-only@localhost:5432/add_auth_external_test" bundle exec rspec spec/migration/external_enrollment.rb spec/generators/external_identities_generator_spec.rb
           done
         env:

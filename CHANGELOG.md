@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — 2026-09-13
+
+- Constrain JSON below 3.0 for the supported Rails decoding API; independently
+  installed hosts must be able to decrypt account and email proof deliveries.
+
+- Add explicit optional password-signup confirmation with atomic provisioning and
+  initial session issuance. Unverified email stays unverified; required
+  confirmation remains the default.
+- Add an independent opt-in for single-use password reset proofs to unconfirmed
+  password accounts, retaining account restrictions and authority revocation.
+- Allow password-only lifecycle/step-up generation without enabling email sign-in.
+- Expand the generated Rails initializer with executable defaults and commented
+  alternatives. Feature generators update their own setting in that file.
+
 ## 0.3.0 — 2026-09-09
 
 Optional account lifecycle, bounded Devise migration and native authentication.

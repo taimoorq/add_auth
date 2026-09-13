@@ -141,6 +141,97 @@ partials were actually copied. The default RSpec suite still runs without these
 optional gems. Serialize commands that boot `spec/dummy`; separate generated hosts
 have their own databases or unique test schemas.
 
+## Optional confirmation integration rehearsal
+
+This section targets 0.4.0. Use a disposable Rails host with the candidate
+installed, following [checkout development](#work-on-a-checkout). Application
+users should use the RubyGems package after its publication; 0.3.0 does not
+contain the new confirmation options.
+
+From that host, after Rails authentication is present:
+
+```sh
+bin/rails generate add_auth:accounts --no-email-link
+bin/rails db:migrate
+```
+
+Review `config/initializers/add_auth.rb`. The generated file contains the default
+assignments and commented alternatives for every settings group. Existing files
+are preserved: compare them with the [initializer template](lib/generators/add_auth/install/templates/initializer.rb)
+and bring over only the settings you choose. Feature generators update their
+own boolean enablement line, keep custom expressions, and remain repeatable.
+`--no-email-link` does not disable email sign-in in a host that already enabled it.
+
+Set these values inside the initializer's existing `AddAuth.configure` block:
+
+```ruby
+config.lifecycle.enabled = true
+config.lifecycle.confirmation_required = false
+# Optional, separate recovery decision:
+# config.lifecycle.reset_unconfirmed = true
+```
+
+The accounts generator includes an additive `add_auth_provisioned_at` migration,
+including when rerun in an existing lifecycle host. Optional confirmation refuses
+to start without it. Do not backfill `confirmed_at` to enable signup. Reconcile
+existing pending registrations and imported-account provisioning before changing
+a host's policy; the migration invents no historical provisioning receipts.
+Existing required-confirmation hosts keep their current behavior without this
+optional-profile migration. Preserve receipts when rolling back application code.
+An old implementation must not consume confirmation for accounts provisioned by
+this profile: use a compatible rollback build or stop that intake.
+
+Configure `eligible`, the additional `lifecycle.eligible`, profile allowlists and
+`lifecycle.provision` for the host. Provisioning must use local writes on the same
+account database connection and raise on failure; remote obligations need a host
+transactional outbox. It may not rewrite the signup address, password or email
+verification state. A failed account/provision/session transaction rolls back the
+new account and its obligations. A repeated signup never signs into the existing
+account; after a lost response the user signs in with their password.
+
+Visit `/account/sign-up` and register a fresh address. You should reach the host
+application immediately, with one password session, one provisioning call,
+`confirmed_at: nil`, and no confirmation mail or queued delivery. A later explicit
+confirmation request consumes a real address proof and does not provision again.
+Signup still observes captcha, throttling, eligibility, lockout and strict policy.
+Provider-only enrollment continues to require independent confirmation.
+
+Password reset is separate. With `reset_unconfirmed: false`, an unconfirmed user
+must confirm first or use the host's support process. With `true`, the holder of
+the **current stored mailbox** may reset the password after consuming a bounded,
+purpose-bound, exact-address, single-use proof. This policy can recover an account
+registered with somebody else's address; choose it deliberately. Reset does not
+confirm the address, create a session, provision, or bypass suspension/strict
+policy. Previously issued authority is revoked. An unverified address remains
+unavailable to trusted-recovery callbacks and unlock mail. Existing timed locks
+retain their configured expiry and manual locks require the host's process.
+
+Address changes always need fresh purpose-bound reauthentication and proof of the
+new address. Until confirmation the old identifier and its actual verification
+state remain intact. Password changes and deletion keep their fresh proof and
+host-authorization requirements. Configure working mail and durable jobs for
+these proof and notice workflows even though optional signup itself sends no mail.
+Run `bin/rails add_auth:doctor` before enabling traffic.
+
+From the gem checkout, these installed-candidate fixtures exercise the profile:
+
+```sh
+bundle exec rspec spec/generators/optional_confirmation_generator_spec.rb
+bundle exec rspec spec/upgrade/confirmation_policy.rb
+BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/optional_confirmation.rb
+ADD_AUTH_EJECT_UI=1 BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/optional_confirmation.rb spec/generators/optional_confirmation_generator_spec.rb
+ADD_AUTH_MIGRATION_POSTGRES=1 BUNDLE_GEMFILE=gemfiles/devise_rails_8_1.gemfile bundle exec rspec spec/migration/optional_confirmation.rb
+```
+
+Use a local PostgreSQL server for the UUID fixture; it creates only a random
+schema in the dedicated `add_auth_migration_test` database and removes that schema
+afterward. Run both Rails lines and supported Rubies. Each fixture exercises
+Turbo, JavaScript with Turbo absent, and no-JS browser journeys with real CSRF,
+plus registration/provisioning/reset races and rollback. Ejection runs exercise
+the actual copied controller and views. The stock fixture also runs in the root
+RSpec suite. Receipt counts distinguish these wrapper examples from their inner
+acceptance scenarios.
+
 ## Migration execution and compatibility rollback
 
 The migration fixtures now also execute `examples/devise_backfill.rb`, a

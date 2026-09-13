@@ -4,7 +4,7 @@ AddAuth extends Rails 8's authentication generator with email-link sign-in,
 passkeys, purpose-bound reauthentication, hardened sessions and pluggable captcha.
 It reuses the host's accounts and Session model.
 
-**Reviewed 2026-09-09: [0.3.0 is published and verified](https://github.com/taimoorq/add_auth/releases/tag/v0.3.0).**
+**Reviewed 2026-09-13.** Check [published releases](https://github.com/taimoorq/add_auth/releases) for package availability and provenance. This checklist distinguishes verified implementation from publication.
 It adds the bounded Devise migration, optional account lifecycle, provider-library
 integration and finite native authentication below. Required PR and exact
 release-commit CI/CodeQL, protected OIDC publication, downloaded-package comparison
@@ -23,7 +23,13 @@ can describe tested local work; release/publication remains a separate gate. Det
 design and decision records remain in the companion private planning workspace;
 this public checklist is derived from its section 14 and stands on its own.
 
-## Now — maintain 0.3 and learn from adoption
+## Now — maintain AddAuth and learn from adoption
+
+- [x] Optional password-signup confirmation, immediate transactional provisioning
+  and session issuance, explicit unconfirmed-reset policy, password-only lifecycle
+  and the complete commented Rails initializer. Local supported-matrix, stock/
+  adopted-host, UUID PostgreSQL and three-mode bundled/ejected acceptance passes.
+  Added in the 0.4.0 source; see [release availability and provenance](https://github.com/taimoorq/add_auth/releases).
 
 - [x] **R1 · Resolve the outstanding dependency update.**
       [PR #9](https://github.com/taimoorq/add_auth/pull/9) updates the immutable

@@ -2,6 +2,9 @@
 <% content_for :title, title %>
 <h1 id="add_auth-title"><%= title %></h1>
 <p class="<%= add_auth_class(:muted) %>">Enter your account email address to request a secure link.</p>
+<% if @purpose == "reset_password" %>
+  <p>You can also <%= link_to "request email confirmation", "/account/requests/confirm" %> if you haven’t confirmed your address.</p>
+<% end %>
 <% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
 <%= form_with url: "/account/requests/#{@purpose}", data: add_auth_challenge_form_data(:account_request) do |form| %>
   <div class="<%= add_auth_class(:field) %>">

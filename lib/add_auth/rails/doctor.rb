@@ -120,6 +120,11 @@ module AddAuth
           check("Install provider account management routes") { ::Rails.application.routes.recognize_path("/account/external-identities", method: :get) }
         end
         if config.lifecycle.enabled
+          check("Set explicit confirmation and unconfirmed-reset policies") { Runtime.account_policy }
+          if config.lifecycle.confirmation_required == false
+            columns(::User, %w[add_auth_provisioned_at], "optional confirmation provisioning")
+            check("Enable password authentication for optional signup confirmation") { config.passwords_enabled }
+          end
           if defined?(::PasswordsController)
             check("Retire stock password reset entry points through the shared account flow") { ::PasswordsController < AccountPasswordEntry }
           end
@@ -179,10 +184,12 @@ module AddAuth
           check("Enable security notification delivery errors") { ::AddAuth::SecurityMailer.raise_delivery_errors }
         end
         if config.step_up.enabled
-          check("Enable session and email prerequisites for step_up") { config.session.enabled && config.email_link.enabled }
+          check("Enable session prerequisites for step_up") { config.session.enabled }
           columns(::Session, %w[elevation_version elevation_expires_at], "reauthentication")
-          columns(defined?(::AddAuthSignInToken) && ::AddAuthSignInToken,
-            %w[browser_digest session_id session_digest authentication_purpose], "reauthentication")
+          if config.email_link.enabled
+            columns(defined?(::AddAuthSignInToken) && ::AddAuthSignInToken,
+              %w[browser_digest session_id session_digest authentication_purpose], "reauthentication")
+          end
           check("Declare valid step-up purposes and safe return destinations") { Runtime.step_up_purposes.any? && Runtime.step_up_policy }
           %w[/reauthenticate /reauthenticate/link].each do |path|
             check("Install route #{path}") { ::Rails.application.routes.recognize_path(path, method: :get) }

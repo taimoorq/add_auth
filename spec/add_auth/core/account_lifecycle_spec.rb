@@ -8,7 +8,7 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
   let(:account_type) do
     Struct.new(:id, :email_address, :password_digest, :add_auth_authority,
       :confirmed_at, :unconfirmed_email, :locked_at, :disabled_at, :deleted_at,
-      :add_auth_manual_lock)
+      :add_auth_manual_lock, :add_auth_provisioned_at)
   end
   let(:proof_type) do
     Struct.new(:user, :purpose, :digest, :request_id, :address_digest,
@@ -71,7 +71,7 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
     result = accounts.register(identifier: " Account@example.test ", password: "valid-account-password", profile: {admin: true})
     expect(result.success?).to be(true)
     expect(result.user).to be_nil
-    expect(store).to have_received(:create_account).with(email: user.email_address, password: "valid-account-password", profile: {})
+    expect(store).to have_received(:create_account).with(email: user.email_address, password: "valid-account-password", profile: {}, replacing: nil)
     expect(@proof.purpose).to eq("confirm")
     expect(store).not_to have_received(:provision)
     expect(store).not_to have_received(:revoke_authority)
@@ -85,7 +85,7 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
     let(:mapper) { ->(profile) { profile.slice(:name, :consent, :add_auth_authority) } }
 
     it "passes reviewed name and consent fields through the host validation boundary" do
-      expect(store).to receive(:create_account).with(email: user.email_address, password: "valid-account-password", profile: {name: "Reader", consent: true}).and_return(:invalid)
+      expect(store).to receive(:create_account).with(email: user.email_address, password: "valid-account-password", profile: {name: "Reader", consent: true}, replacing: nil).and_return(:invalid)
       expect(accounts.register(identifier: user.email_address, password: "valid-account-password", profile: {name: "Reader", consent: true, role: "admin"}).success?).to be(false)
     end
 
@@ -180,5 +180,64 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
     allow(sessions).to receive(:with_elevation) { |**_, &block| block.call(user) }
     allow(store).to receive(:delete_account).and_raise(described_class::DeletionRejected)
     expect(accounts.delete_account(user: user, session: :browser).reason).to eq(:invalid_credentials)
+  end
+
+  context "with optional confirmation" do
+    let(:policy) { AddAuth::Core::AccountPolicy.new(enabled: true, confirmation_required: false, clock: clock) }
+    let(:grant) { AddAuth::Core::Sessions::Grant.new(session: :persisted_session, bearer: "secret") }
+
+    before do
+      allow(store).to receive(:create_account) { |**_, &block|
+        block.call(user)
+        :created
+      }
+      allow(store).to receive(:claim_address)
+      allow(store).to receive(:finalize_session) { |**_, &block| block.call(:transaction_writer) }
+      allow(sessions).to receive(:create_in_transaction).and_return(grant)
+    end
+
+    it "provisions and finalizes only the new account with truthful verification" do
+      result = accounts.register(identifier: user.email_address, password: "valid-account-password", replacing: :previous, ip_address: "127.0.0.1")
+      expect(result.grant).to eq(grant)
+      expect(user.confirmed_at).to be_nil
+      expect(user.add_auth_provisioned_at).to eq(now)
+      expect(store).to have_received(:provision).once
+      expect(sessions).to have_received(:create_in_transaction).with(user: user, method: :password,
+        persist: :transaction_writer, replacing: :previous, ip_address: "127.0.0.1", user_agent: nil, remember: false)
+      expect(store).not_to have_received(:replace_pending)
+      expect(accounts.registration_next_path).to eq("/sign-in")
+    end
+
+    it "never returns a grant from duplicate or rolled-back registration" do
+      allow(store).to receive(:create_account).and_return(:duplicate)
+      expect(accounts.register(identifier: user.email_address, password: "valid-account-password").grant).to be_nil
+      expect(store).not_to have_received(:provision)
+      allow(store).to receive(:create_account) { |**_, &block|
+        block.call(user)
+        :duplicate
+      }
+      expect(accounts.register(identifier: user.email_address, password: "valid-account-password").grant).to be_nil
+    end
+
+    it "rejects denied session finalization so the store rolls back its transaction" do
+      allow(sessions).to receive(:create_in_transaction).and_return(nil)
+      expect(accounts.register(identifier: user.email_address, password: "valid-account-password").reason).to eq(:invalid_credentials)
+    end
+
+    it "does not provision again when a later independent confirmation is consumed" do
+      accounts.register(identifier: user.email_address, password: "valid-account-password")
+      accounts.issue(identifier: user.email_address, purpose: :confirm)
+      allow(store).to receive(:with_token) { |**_, &block| block.call(user, @proof) }
+      expect(accounts.consume(token: token, purpose: :confirm)).to be_success
+      expect(user.confirmed_at).to eq(now)
+      expect(store).to have_received(:provision).once
+    end
+
+    it "does not issue unconfirmed unlock or reset mail through a permissive trusted-address callback" do
+      expect(accounts.issue(identifier: user.email_address, purpose: :reset_password)).to be_success
+      user.locked_at = now
+      expect(accounts.issue(identifier: user.email_address, purpose: :unlock)).to be_success
+      expect(store).not_to have_received(:replace_pending)
+    end
   end
 end

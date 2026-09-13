@@ -16,7 +16,7 @@ module AddAuth
           add_auth_accept(grant)
           redirect_to destination, status: :see_other
         else
-          @error = "Email or password is incorrect. Try again or request a sign-in link."
+          @error = "Email or password is incorrect. Try again."
           page("form", status: :unprocessable_entity)
         end
       end

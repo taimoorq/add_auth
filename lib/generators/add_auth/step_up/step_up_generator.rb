@@ -1,18 +1,21 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class StepUpGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)
+      class_option :email_link, type: :boolean, default: true, desc: "Enable email sign-in alongside reauthentication"
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)
 
       def dependencies
-        invoke "add_auth:email_link"
+        invoke "add_auth:email_link", [], enable: options[:email_link]
       end
 
       def persistence
@@ -33,10 +36,7 @@ module AddAuth
             post "reauthenticate/link", to: "add_auth/reauthentications#confirm"
           ROUTES
         end
-        initializer = "config/initializers/add_auth.rb"
-        unless File.read(File.join(destination_root, initializer)).include?("config.step_up.enabled = true")
-          append_to_file initializer, "\nAddAuth.configure do |config|\n  config.step_up.enabled = true\n  # Declare purpose methods and a fixed safe GET return_to before use.\nend\n"
-        end
+        enable_feature(:step_up)
         say "Migrate and declare config.step_up.purposes. Use with_elevated_session around sensitive database mutations."
       end
     end

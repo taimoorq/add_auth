@@ -1,6 +1,6 @@
 <% content_for :title, "Create an account" %>
 <h1 id="add_auth-title">Create an account</h1>
-<p class="<%= add_auth_class(:muted) %>">We’ll email you a link to confirm your address before you sign in.</p>
+<p class="<%= add_auth_class(:muted) %>"><%= AddAuth::Rails::Runtime.accounts.registration_instructions %></p>
 <% if @error %><p role="alert" class="<%= add_auth_class(:notice) %>"><%= @error %></p><% end %>
 <%= form_with url: "/account/sign-up", data: add_auth_challenge_form_data(:register) do |form| %>
   <div class="<%= add_auth_class(:field) %>">

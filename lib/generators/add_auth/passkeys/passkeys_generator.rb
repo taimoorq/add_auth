@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class PasskeysGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)
@@ -47,27 +49,7 @@ module AddAuth
             post "recover/link", to: "add_auth/recoveries#confirm"
           ROUTES
         end
-        path = "config/initializers/add_auth.rb"
-        unless File.read(File.join(destination_root, path)).include?("config.passkeys.enabled = true")
-          append_to_file path, <<~CONFIG
-
-            AddAuth.configure do |config|
-              config.passkeys.enabled = true
-              # REQUIRED: stable RP ID and exact deployment origins, never request Host.
-              # config.passkeys.rp_id = "example.com"
-              # config.passkeys.origins = ["https://app.example.com"]
-              # config.passkeys.name = "Your app"
-              # Shared anonymous ceremony budget per five minutes; positive integer.
-              # config.passkeys.anonymous_limit = 1000
-              # Schedule add_auth:deliver_pending every minute. Production doctor
-              # requires a completed cleanup within the last two minutes.
-              # REQUIRED for email replacement: a host-verified recovery address.
-              # config.trusted_recovery_address = ->(user) { user.email_address if user.confirmed? }
-              # REQUIRED before strict activation: your documented support route.
-              # config.support_url = "/support"
-            end
-          CONFIG
-        end
+        enable_feature(:passkeys)
         say "Review and migrate before enabling traffic. Configure RP/origins, trusted recovery and notifications; run add_auth:doctor."
       end
     end

@@ -1,14 +1,17 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class EmailLinkGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)
+      class_option :enable, type: :boolean, default: true, desc: "Enable email sign-in after preparing its storage"
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)
 
       def dependencies
@@ -48,7 +51,7 @@ module AddAuth
         unless File.read(File.join(destination_root, "config/routes.rb")).include?("add_auth/challenge.js")
           route 'get "add_auth/challenge.js", to: "add_auth/assets#challenge"'
         end
-        gsub_file "config/initializers/add_auth.rb", "# config.email_link.enabled = true", "config.email_link.enabled = true"
+        enable_feature(:email_link) if options[:enable]
         say "Review and migrate, configure base_url/mail_from, a durable queue, shared rate-limit cache and a recurring add_auth:deliver_pending sweep."
       end
     end

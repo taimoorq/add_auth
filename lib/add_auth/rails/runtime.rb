@@ -15,11 +15,17 @@ module AddAuth
       def config = AddAuth.configuration
 
       def account_policy
-        Core::AccountPolicy.new(enabled: config.lifecycle.enabled, eligible: config.lifecycle.eligible)
+        Core::AccountPolicy.new(enabled: config.lifecycle.enabled,
+          eligible: ->(user) { config.eligible.call(user) == true && config.lifecycle.eligible.call(user) == true },
+          confirmation_required: config.lifecycle.confirmation_required, reset_unconfirmed: config.lifecycle.reset_unconfirmed)
       end
 
       def eligible(user)
-        config.eligible.call(user) == true && account_policy.allowed?(user)
+        account_policy.allowed?(user)
+      end
+
+      def trusted_recovery_address(user)
+        config.trusted_recovery_address.call(user) if account_policy.trusted_address?(user)
       end
 
       def authority
@@ -74,11 +80,14 @@ module AddAuth
 
       def accounts
         raise AddAuth::Error, "enable account lifecycle first" unless config.lifecycle.enabled
+        if !account_policy.confirmation_required? && !::User.column_names.include?("add_auth_provisioned_at")
+          raise AddAuth::Error, "rerun add_auth:accounts and migrate before enabling optional confirmation"
+        end
         require "add_auth/rails/stores/account_tokens"
         Core::AccountLifecycle.new(store: Stores::AccountTokens.new(user_model: ::User, token_model: ::AddAuthAccountToken,
           session_model: ::Session, address_model: ::AddAuthAddressClaim, authority: authority, provision: config.lifecycle.provision, delete_account: config.lifecycle.delete_account),
           digest: config.sign_in_token_digest, delivery_cipher: DeliveryCipher.new(key: key("account-proofs")),
-          policy: account_policy, password_policy: config.lifecycle.password_policy, trusted_address: config.trusted_recovery_address,
+          policy: account_policy, password_policy: config.lifecycle.password_policy, trusted_address: method(:trusted_recovery_address),
           lifetime: config.lifecycle.proof_lifetime, notify: ->(**event) { security_events.issue(**event) if config.notifications.enabled },
           sessions: sessions, step_up_policy: step_up_policy, profile_attributes: config.lifecycle.profile_attributes, deletion_allowed: config.lifecycle.deletion_allowed,
           external_identities: -> { external_identities })
@@ -168,7 +177,7 @@ module AddAuth
         Core::AccessPolicy.new(credentials: ->(id) {
           ::AddAuthCredential.find_by(external_id: id) if defined?(::AddAuthCredential) && ::AddAuthCredential.table_exists?
         }, passkeys_enabled: config.passkeys.enabled, email_enabled: Core::Intake.email_available?(config),
-          trusted_recovery_address: config.trusted_recovery_address, password_enabled: config.passwords_enabled,
+          trusted_recovery_address: method(:trusted_recovery_address), password_enabled: config.passwords_enabled,
           external_enabled: config.external_identities.enabled,
           external_current: ->(**arguments) { external_identities.credential_current?(**arguments) })
       end

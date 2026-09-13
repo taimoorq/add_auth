@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class NotificationsGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)
@@ -21,10 +23,7 @@ module AddAuth
       end
 
       def configuration
-        path = "config/initializers/add_auth.rb"
-        unless File.read(File.join(destination_root, path)).include?("config.notifications.enabled = true")
-          append_to_file path, "\nAddAuth.configure do |config|\n  config.notifications.enabled = true\nend\n"
-        end
+        enable_feature(:notifications)
         say "Migrate, configure mail_from and a durable queue, and schedule add_auth:deliver_pending every minute."
       end
     end

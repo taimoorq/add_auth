@@ -19,9 +19,17 @@ module AddAuth
     def create
       admitted = intake(:register)
       return intake_failure(admitted) if admitted.is_a?(Symbol)
-      result = Rails::Runtime.accounts.register(identifier: admitted, password: params[:password], profile: registration_profile)
+      accounts = Rails::Runtime.accounts
+      result = accounts.register(identifier: admitted, password: params[:password], profile: registration_profile,
+        replacing: add_auth_replacement_session, **add_auth_session_hints)
       if result.success?
-        redirect_to "/account/check-email", status: :see_other
+        if result.grant
+          destination = after_authentication_url
+          add_auth_accept(result.grant)
+          redirect_to destination, status: :see_other
+        else
+          redirect_to accounts.registration_next_path, status: :see_other
+        end
       else
         @error = "Check your email and choose a password that meets this application's requirements."
         page("register", status: :unprocessable_entity)

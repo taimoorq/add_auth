@@ -15,7 +15,7 @@ module AddAuth
     PasskeyOptions = Struct.new(:enabled, :rp_id, :origins, :name, :anonymous_limit)
     NotificationOptions = Struct.new(:enabled)
     MaintenanceOptions = Struct.new(:batch_size, :session_retention, :email_retention, :notification_retention, :account_retention)
-    LifecycleOptions = Struct.new(:enabled, :password_policy, :eligible, :provision, :profile_attributes, :maximum_attempts, :unlock_in, :proof_lifetime, :remember_lifetime, :remember_idle_timeout, :deletion_allowed, :delete_account)
+    LifecycleOptions = Struct.new(:enabled, :password_policy, :eligible, :provision, :profile_attributes, :maximum_attempts, :unlock_in, :proof_lifetime, :remember_lifetime, :remember_idle_timeout, :deletion_allowed, :delete_account, :confirmation_required, :reset_unconfirmed)
     class ExternalProvider
       attr_reader :id, :label, :middleware_name, :configuration, :apple_form_post, :reauthentication
 
@@ -88,7 +88,7 @@ module AddAuth
       @lifecycle = LifecycleOptions.new(enabled: false, password_policy: ->(password) { password.length >= 12 && password.bytesize <= 72 },
         eligible: ->(_user) { true }, provision: ->(_user) {}, profile_attributes: ->(_profile) { {} }, maximum_attempts: 20, unlock_in: 3600, proof_lifetime: 3600,
         remember_lifetime: 14 * 86_400, remember_idle_timeout: 7 * 86_400,
-        deletion_allowed: ->(_user) { true }, delete_account: ->(user) { user.destroy! })
+        deletion_allowed: ->(_user) { true }, delete_account: ->(user) { user.destroy! }, confirmation_required: true, reset_unconfirmed: false)
       @session = SessionOptions.new(enabled: false, lifetime: 43_200, idle_timeout: 1800)
       @mobile = MobileOptions.new(enabled: false, clients: [], callbacks: {}, apple_providers: {})
       @email_link = EmailOptions.new(enabled: false, token_lifetime: 1200, same_browser: false)

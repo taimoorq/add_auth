@@ -9,18 +9,22 @@ module AddAuth
       include ::Rails::Generators::Migration
 
       source_root File.expand_path("templates", __dir__)
+      class_option :email_link, type: :boolean, default: true, desc: "Enable email sign-in as a step-up dependency"
       desc "Prepare optional account lifecycle schema and pages; review existing account confirmation and policy before enabling"
 
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)
 
       def prerequisites
         invoke "add_auth:notifications"
-        invoke "add_auth:step_up"
+        invoke "add_auth:step_up", [], email_link: options[:email_link]
       end
 
       def persistence
         unless Dir[File.join(destination_root, "db/migrate/*_add_add_auth_accounts.rb")].any?
           migration_template "add_add_auth_accounts.rb.tt", "db/migrate/add_add_auth_accounts.rb"
+        end
+        unless Dir[File.join(destination_root, "db/migrate/*_add_add_auth_provisioning.rb")].any?
+          migration_template "add_add_auth_provisioning.rb.tt", "db/migrate/add_add_auth_provisioning.rb"
         end
         %w[add_auth_account_token add_auth_address_claim].each do |name|
           template "#{name}.rb", "app/models/#{name}.rb" unless File.exist?(File.join(destination_root, "app/models/#{name}.rb"))

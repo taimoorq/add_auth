@@ -1,0 +1,9 @@
+class AddAddAuthProvisioning < ActiveRecord::Migration[8.0]
+  def up
+    add_column :users, :add_auth_provisioned_at, :datetime unless column_exists?(:users, :add_auth_provisioned_at)
+  end
+
+  def down
+    raise ActiveRecord::IrreversibleMigration, "Retain provisioning receipts to prevent repeating account setup"
+  end
+end

@@ -1,6 +1,6 @@
 # AddAuth
 
-**0.3.0:** password, email-link and passkey sign-in extend
+Password, email-link and passkey sign-in extend
 Rails' generated authentication. AddAuth adds hardened sessions, verification
 for sensitive actions, passkey management and email recovery with an optional
 strict policy. Turnstile and reCAPTCHA integrations are available. See
@@ -9,7 +9,7 @@ strict policy. Turnstile and reCAPTCHA integrations are available. See
 AddAuth builds on top of Rails 8's built-in login system instead of
 replacing it -- it keeps using your existing `User` and `Session` models.
 
-Version 0.3.0 adds optional account lifecycle, bounded Devise migration,
+Introduced in 0.3.0: optional account lifecycle, bounded Devise migration,
 provider-library integration and finite Android/iOS sessions. See the
 [migration guide](https://addauthgem.com/migrating-from-devise/) before changing
 an existing Devise app; do not run the Rails generator over its custom files.
@@ -17,24 +17,38 @@ an existing Devise app; do not run the Rails generator over its custom files.
 Read the [documentation](https://addauthgem.com) for setup guides, configuration
 reference and troubleshooting.
 
+## Configuration and optional signup confirmation
+
+Version 0.4.0 adds optional password-signup confirmation and a
+complete, commented [Rails initializer](lib/generators/add_auth/install/templates/initializer.rb).
+Its default assignments are active; opt-in alternatives are commented out.
+Required confirmation remains the default. See the [configuration guide](https://addauthgem.com/configuration/)
+and [account setup](https://addauthgem.com/configuration-preview/), or the
+[contributor rehearsal](CONTRIBUTING.md#optional-confirmation-integration-rehearsal)
+for verification in a disposable host.
+
 ## Quickstart
+
+These commands target 0.4.0 and are available after its
+[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.4.0).
+Check package availability before changing your app’s bundle.
 
 Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** these commands require the published `0.3.0` package.
+**Release availability:** these commands require the published `0.4.0` package.
 If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
 wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
 below before enabling sign-in for users.
 
 1. Keep `source "https://rubygems.org"` in your app’s Gemfile and add the
-   0.3 release line:
+   0.4 release line:
 
    ```ruby
    # Gemfile
-   gem "add_auth", "~> 0.3.0"
+   gem "add_auth", "~> 0.4.0"
    ```
 
    Bundler downloads the package from RubyGems and records the resolved
@@ -51,10 +65,19 @@ below before enabling sign-in for users.
    bin/rails generate authentication
    ```
 
-3. Add AddAuth:
+3. Create your configuration file:
 
    ```sh
    bin/rails generate add_auth:install
+   ```
+
+   Open `config/initializers/add_auth.rb`. Defaults are active and optional
+   alternatives are commented out. This command enables no features and preserves
+   an existing initializer. Each feature section names its generator.
+
+4. Enable password and email-link sign-in:
+
+   ```sh
    bin/rails generate add_auth:email_link
    bin/rails db:migrate
    ```
@@ -63,7 +86,7 @@ below before enabling sign-in for users.
    in, plus a page where a signed-in user can see their active sessions and
    sign out of one remotely.
 
-4. Set these values in `config/initializers/add_auth.rb`:
+5. Set these values in `config/initializers/add_auth.rb`:
 
    ```ruby
    AddAuth.configure do |config|
@@ -83,7 +106,7 @@ below before enabling sign-in for users.
    config.action_mailer.raise_delivery_errors = true
    ```
 
-5. Create a trial account in `bin/rails console` using your own test address and
+6. Create a trial account in `bin/rails console` using your own test address and
    password, then start `bin/rails server` and visit `/sign-in`. Request a link
    for that account and open the message written under `tmp/mail`. Treat these
    local messages as credentials and delete them after testing. Raw sign-in
@@ -538,7 +561,7 @@ or recovery procedures work in production.
 
 ## Scope
 
-AddAuth 0.3 implements password/email/passkey sign-in, session adoption and
+AddAuth implements password/email/passkey sign-in, session adoption and
 management, purpose-bound verification, passkey recovery and strict account
 policy, durable security mail and challenge adapters. Optional account lifecycle
 adds registration, confirmation/reconfirmation, password reset, lock/unlock and

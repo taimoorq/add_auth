@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class SessionUpgradeGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)
 
@@ -62,7 +64,7 @@ module AddAuth
         unless File.read(File.join(destination_root, path)).include?('require "add_auth/rails/authentication"')
           prepend_to_file path, %(require "add_auth/rails/authentication"\nrequire "add_auth/rails/user_lifecycle"\n)
         end
-        gsub_file path, "# config.session.enabled = true", "config.session.enabled = true"
+        enable_feature(:session)
         routes = File.join(destination_root, "config/routes.rb")
         source = File.read(routes)
         unless source.include?("# AddAuth session management")

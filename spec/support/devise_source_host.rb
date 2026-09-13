@@ -126,7 +126,7 @@ class DeviseSourceHost < IsolatedHost
     RUBY
   end
 
-  def password_destination(profile:)
+  def password_destination(profile:, passkeys: true)
     reference_directory = File.join(directory, "reference")
     FileUtils.mkdir_p(reference_directory)
     reference = IsolatedHost.new(reference_directory)
@@ -147,7 +147,7 @@ class DeviseSourceHost < IsolatedHost
     FileUtils.rm_f(File.join(root, "config/initializers/devise.rb"))
     install(artifact, label: "destination", extra_gems: ["pg", "capybara", "selenium-webdriver", "rspec-rails"])
     run("db:migrate")
-    run("generate", "add_auth:passkeys")
+    passkeys ? run("generate", "add_auth:passkeys") : run("generate", "add_auth:session_upgrade")
     configure
     File.open(File.join(root, "app/models/user.rb"), "a") do |file|
       file.puts 'require "add_auth/rails/password_adoption"'

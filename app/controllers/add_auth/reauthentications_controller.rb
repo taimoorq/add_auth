@@ -8,6 +8,7 @@ module AddAuth
     skip_before_action :require_authentication, raise: false
     before_action :private_response
     before_action :enabled_feature
+    before_action :enabled_email_feature, only: %i[request_link check_email link confirm]
     before_action :require_add_auth_authentication, except: %i[link confirm]
     before_action :load_purpose, only: %i[new password request_link check_email]
     protect_from_forgery with: :exception
@@ -52,6 +53,10 @@ module AddAuth
 
     def enabled_feature
       head :not_found unless Rails::Runtime.config.step_up.enabled
+    end
+
+    def enabled_email_feature
+      head :not_found unless Core::Intake.email_available?(Rails::Runtime.config)
     end
 
     def load_purpose

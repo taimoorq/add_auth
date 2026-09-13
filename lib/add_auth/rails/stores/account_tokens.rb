@@ -16,16 +16,19 @@ module AddAuth
           @account_credentials = AccountCredentials.new(user_model: user_model, authority: authority)
         end
 
-        def create_account(email:, password:, profile: {})
+        def create_account(email:, password:, profile: {}, replacing: nil)
           raise AddAuth::Error, "registration must own its transaction" if @users.connection.transaction_open?
           completed = false
+          saved = false
           @users.transaction do |transaction|
             transaction.after_commit { completed = true }
+            AccountLock.new(@users).current_in_transaction(id: replacing.user_id) if replacing
             user = @users.new(profile)
             user.email_address = email
             user.password = password
             user.add_auth_authority = "add_auth"
             user.save!
+            saved = true
             yield user
           end
           raise AddAuth::Error, "registration transaction rolled back" unless completed
@@ -33,6 +36,7 @@ module AddAuth
         rescue ActiveRecord::RecordNotUnique, Core::AccountLifecycle::Conflict
           :duplicate
         rescue ActiveRecord::RecordInvalid => error
+          raise if saved
           (error.record.errors.attribute_names - [:email_address]).empty? ? :duplicate : :invalid
         end
 
@@ -81,7 +85,11 @@ module AddAuth
         end
 
         def revoke_authority(user:, at:) = @authority.revoke(user_id: user.id, at: at)
-        def provision(user:) = @provision.call(user)
+
+        def provision(user:)
+          @provision.call(user)
+          user.reload
+        end
 
         def delete_account(user:)
           raise AddAuth::Error, "account deletion requires its owning transaction" unless @users.connection.transaction_open?

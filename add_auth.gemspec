@@ -61,6 +61,10 @@ Gem::Specification.new do |spec|
   # The transaction-owned writer also uses the public current_transaction API,
   # available at this floor; no new Rails or Ruby floor is required.
   spec.add_dependency "rails", ">= 8.0"
+  # Rails 8.0/8.1 JSON decoding passes a positional options Hash. JSON 3
+  # requires keywords, breaking Rails' encrypted proof/cookie deserialization.
+  # Retire this compatibility bound when both supported Rails lines support it.
+  spec.add_dependency "json", "< 3.0"
   spec.add_dependency "webauthn", "~> 3.4", ">= 3.4.3"
   spec.add_dependency "public_suffix", "~> 7.0"
   spec.add_dependency "turbo-rails", "~> 2.0"

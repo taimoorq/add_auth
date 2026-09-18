@@ -10,7 +10,7 @@ RSpec.describe "Session page navigation", database: true do
       browser = Capybara::Session.new(driver, Rails.application)
       browser.visit "/sign-in"
       unless driver == :add_auth_no_js
-        expect(browser.evaluate_script("typeof window.Turbo")).to eq(AddAuth.configuration.turbo_enabled ? "object" : "undefined")
+        AddAuthBrowserNavigation.wait_for_turbo(browser, enabled: AddAuth.configuration.turbo_enabled)
       end
       browser.fill_in "Email address", with: user.email_address
       browser.fill_in "Password", with: "correct-password"

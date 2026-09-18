@@ -153,7 +153,7 @@ RSpec.describe "Installed authentication key contracts" do
       ActionController::Base.allow_forgery_protection = true
       browser = Capybara::Session.new((mode == :no_js) ? :add_auth_no_js : :add_auth_chrome, Rails.application)
       browser.visit "/sign-in"
-      expect(browser.evaluate_script("typeof window.Turbo")).to eq((mode == :turbo) ? "object" : "undefined") unless mode == :no_js
+      AddAuthBrowserNavigation.wait_for_turbo(browser, enabled: mode == :turbo) unless mode == :no_js
       browser.fill_in "Email address", with: user.email_address
       browser.fill_in "Password", with: "correct-password"
       browser.click_button "Sign in with password"

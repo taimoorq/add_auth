@@ -24,11 +24,7 @@ RSpec.describe "Optional signup in Chrome" do
       expect(browser).to have_css("h1", text: "Create an account")
       expect(browser).to have_text("sign in right away")
       expect(browser).to have_css('meta[name="turbo-cache-control"][content="no-cache"]', visible: :all)
-      if mode == :html
-        expect(browser.evaluate_script("typeof window.Turbo")).to eq("undefined")
-      elsif mode == :turbo
-        expect(browser.evaluate_script("typeof window.Turbo")).to eq("object")
-      end
+      AddAuthBrowserNavigation.wait_for_turbo(browser, enabled: mode == :turbo) unless mode == :no_js
       if ENV["ADD_AUTH_ACCEPTANCE_ARTIFACTS"]
         FileUtils.mkdir_p(ENV.fetch("ADD_AUTH_ACCEPTANCE_ARTIFACTS"))
         browser.save_screenshot(File.join(ENV.fetch("ADD_AUTH_ACCEPTANCE_ARTIFACTS"), "#{mode}-signup-#{Process.pid}.png"))

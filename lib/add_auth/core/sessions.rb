@@ -2,6 +2,8 @@
 
 require "securerandom"
 require "add_auth/core/mobile_profile"
+require "add_auth/core/session_key"
+require "add_auth/core/session_cursor"
 
 module AddAuth
   module Core
@@ -37,6 +39,8 @@ module AddAuth
           raise ArgumentError, "legacy_bridge_until must be an absolute Time or nil"
         end
         @store, @digest, @eligible, @clock = store, digest, eligible, clock
+        @key = SessionKey.new(type: store.respond_to?(:id_type) ? store.id_type : :integer)
+        @cursor = SessionCursor.new(key: @key)
         @access_policy = access_policy
         @password_lifecycle = password_lifecycle
         @on_sign_in = on_sign_in
@@ -191,13 +195,14 @@ module AddAuth
       def list_page(user:, current_session_id: nil, before: nil)
         empty = Page.new(entries: [])
         return empty unless user && @eligible.call(user) == true
-        return empty unless before.nil? || before.to_s.match?(/\A[1-9]\d{0,18}\z/)
+        boundary = @cursor.decode(before) unless before.nil?
+        return empty unless before.nil? || boundary
 
         now = @clock.now
-        candidates = @store.list_for_user(user_id: user.id, before: before&.to_i,
+        candidates = @store.list_for_user(user_id: user.id, before: boundary,
           excluding: current_session_id, limit: PAGE_SIZE + 1, now: now,
           active_after: now - [@idle, @remembered&.fetch(:idle_timeout) || @idle, @mobile&.idle_timeout || @idle].max, legacy: !!(@deadline && now < @deadline))
-        cursor = candidates[PAGE_SIZE - 1].id if candidates.length > PAGE_SIZE
+        cursor = @cursor.encode(candidates[PAGE_SIZE - 1]) if candidates.length > PAGE_SIZE
         rows = candidates.first(PAGE_SIZE)
         if before.nil? && current_session_id
           current = @store.find_for_user(user_id: user.id, session_id: current_session_id)
@@ -217,14 +222,20 @@ module AddAuth
 
       # Both the initiating bearer and target ownership are checked under lock.
       def revoke_one(user:, session:, session_id:)
-        return false unless session_id.is_a?(Integer) || session_id.to_s.match?(/\A[1-9]\d*\z/)
+        target_id = @key.parse(session_id)
+        return false unless target_id
 
         with_live_session(user: user, session: session) do |account, _current, now|
-          target = @store.find_for_user_in_transaction(user_id: account.id, session_id: session_id.to_i)
+          target = @store.find_for_user_in_transaction(user_id: account.id, session_id: target_id)
           next false unless target
           @store.update(target, revoked_at: now) unless target.revoked_at
           true
         end || false
+      end
+
+      def current_session?(session:, session_id:)
+        id = @key.parse(session_id)
+        !!(id && session && id == session.id)
       end
 
       # Password proof is obtained from the locked, current account. Intake
@@ -315,10 +326,10 @@ module AddAuth
       private
 
       def cookie_lookup(value)
-        if value.is_a?(String) && PATTERN.match?(value)
+        if value.is_a?(String) && value.ascii_only? && PATTERN.match?(value)
           {digest: @digest.digest(value)}
-        elsif value.is_a?(Integer) && value.positive? && @deadline && @clock.now < @deadline
-          {id: value}
+        elsif @deadline && @clock.now < @deadline && (id = @key.legacy(value))
+          {id: id}
         end
       end
 

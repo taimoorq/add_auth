@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/primary_key"
 require "rails/generators/active_record"
 
 module AddAuth
@@ -8,6 +9,7 @@ module AddAuth
     # Internal persistence foundation only. Does not install sign-in routes.
     class EmailTokensGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include PrimaryKey
 
       source_root File.expand_path("templates", __dir__)
 

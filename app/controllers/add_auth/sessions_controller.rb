@@ -25,7 +25,7 @@ module AddAuth
 
     def destroy
       target_id = params[:id].to_s
-      if target_id.match?(/\A[1-9]\d*\z/) && target_id.to_i == Current.session.id
+      if Rails::Runtime.sessions.current_session?(session: Current.session, session_id: target_id)
         terminate_session
         return redirect_to Rails::Runtime.sign_in_path, status: :see_other
       end

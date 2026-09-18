@@ -9,6 +9,9 @@ RSpec.describe "Session page navigation", database: true do
       user = User.create!(email_address: "pages@example.test", password: "correct-password")
       browser = Capybara::Session.new(driver, Rails.application)
       browser.visit "/sign-in"
+      unless driver == :add_auth_no_js
+        expect(browser.evaluate_script("typeof window.Turbo")).to eq(AddAuth.configuration.turbo_enabled ? "object" : "undefined")
+      end
       browser.fill_in "Email address", with: user.email_address
       browser.fill_in "Password", with: "correct-password"
       browser.click_button "Sign in with password"
@@ -28,6 +31,10 @@ RSpec.describe "Session page navigation", database: true do
       expect(browser).not_to have_css("p", text: "Pagination browser 0", exact_text: true)
       browser.click_link "Newest sessions"
       expect(browser).to have_text("This browser")
+      browser.click_button "Sign out", exact: true
+      expect(browser).to have_current_path("/sign-in")
+      browser.visit "/sessions"
+      expect(browser).to have_current_path("/sign-in")
     ensure
       browser&.quit
     end

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.0 — 2026-09-18
+
+- Honor Rails' `primary_key_type` generator setting for all AddAuth-owned tables.
+  Support PostgreSQL UUID sessions and mixed integer/UUID account/session keys,
+  retaining bigint defaults and deriving references from the existing schema.
+- Use creation time and a typed ID in opaque session-page cursors; validate
+  revocation and explicitly enabled legacy session adoption for either key type.
+  For apps already using hardened sessions, re-run `add_auth:session_upgrade`
+  for the new pagination index. Existing tables retain their IDs; refresh ejected
+  controllers through the normal review process.
+  Follow the [upgrade guide](https://addauthgem.com/upgrading/#uuid-support) for
+  the release gate, migration review, opaque client cursors and rollback boundary.
+
 ## 0.4.0 — 2026-09-13
 
 - Constrain JSON below 3.0 for the supported Rails decoding API; independently

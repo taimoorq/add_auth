@@ -1,8 +1,10 @@
+require "add_auth/rails/migration/key_type"
+
 class CreateAddAuthExternalIdentities < ActiveRecord::Migration[8.0]
   def change
-    user_type = reference_type(:users)
-    session_type = reference_type(:sessions)
-    create_table :add_auth_external_identities do |t|
+    user_type = AddAuth::Rails::Migration::KeyType.for(connection, :users)
+    session_type = AddAuth::Rails::Migration::KeyType.for(connection, :sessions, session: true)
+    create_table :add_auth_external_identities, id: <%= authentication_primary_key_type %> do |t|
       t.references :user, type: user_type, null: false, foreign_key: {on_delete: :cascade}
       # SHA256 of the exact JSON [configuration, issuer, audience, subject].
       # Indexing this key preserves case-sensitive subjects on either store.
@@ -18,7 +20,7 @@ class CreateAddAuthExternalIdentities < ActiveRecord::Migration[8.0]
       t.timestamps
     end
     add_index :add_auth_external_identities, :namespace, unique: true
-    create_table :add_auth_external_transactions do |t|
+    create_table :add_auth_external_transactions, id: <%= authentication_primary_key_type %> do |t|
       t.string :digest, null: false
       t.string :browser_digest, null: false
       t.string :provider_id, limit: 2048, null: false
@@ -38,13 +40,5 @@ class CreateAddAuthExternalIdentities < ActiveRecord::Migration[8.0]
     add_index :add_auth_external_transactions, :expires_at
     add_column :sessions, :authentication_external_id, :string
     add_column :sessions, :authentication_external_version, :string
-  end
-
-  private
-
-  def reference_type(table)
-    column = connection.columns(table).find { |item| item.name == connection.primary_key(table) }
-    raise "Unsupported authentication primary key" unless column && [:integer, :uuid].include?(column.type)
-    (column.type == :integer && column.limit == 8) ? :bigint : column.type
   end
 end

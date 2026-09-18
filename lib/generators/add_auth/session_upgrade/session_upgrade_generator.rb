@@ -25,6 +25,9 @@ module AddAuth
       end
 
       def migration
+        unless Dir[File.join(destination_root, "db/migrate/*_add_add_auth_session_cursor_index.rb")].any?
+          migration_template "add_add_auth_session_cursor_index.rb.tt", "db/migrate/add_add_auth_session_cursor_index.rb"
+        end
         unless Dir[File.join(destination_root, "db/migrate/*_extend_sessions_for_add_auth.rb")].any?
           migration_template "extend_sessions_for_add_auth.rb.tt", "db/migrate/extend_sessions_for_add_auth.rb"
         end

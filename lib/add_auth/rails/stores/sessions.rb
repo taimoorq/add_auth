@@ -6,8 +6,11 @@ module AddAuth
   module Rails
     module Stores
       class Sessions
+        attr_reader :id_type
+
         def initialize(user_model:, session_model:)
           @users, @sessions = user_model, session_model
+          @id_type = @sessions.columns_hash.fetch(@sessions.primary_key).type
           raise ArgumentError, "authentication models must share one connection pool" unless @users.connection_pool.equal?(@sessions.connection_pool)
           @lock = AccountLock.new(@users)
         end
@@ -38,11 +41,16 @@ module AddAuth
         # Query cutoffs come from Core; Core still authorizes every returned row.
         def list_for_user(user_id:, before:, excluding:, limit:, now:, active_after:, legacy:)
           scope = @sessions.where(user_id: user_id, revoked_at: nil)
-          scope = scope.where("id < ?", before) if before
+          if before&.key?(:legacy_id)
+            scope = scope.where("id < ?", before.fetch(:legacy_id))
+          elsif before
+            scope = scope.where("created_at < ? OR (created_at = ? AND id < ?)",
+              before.fetch(:created_at), before.fetch(:created_at), before.fetch(:id))
+          end
           scope = scope.where.not(id: excluding) if excluding
           scope = scope.where("(expires_at IS NULL OR expires_at > ?) AND (last_seen_at IS NULL OR last_seen_at > ?)", now, active_after)
           scope = scope.where.not(expires_at: nil).where.not(last_seen_at: nil) unless legacy
-          scope.order(id: :desc).limit(limit).to_a
+          scope.order(created_at: :desc, id: :desc).limit(limit).to_a
         end
 
         def find_for_user(user_id:, session_id:) = @sessions.find_by(user_id: user_id, id: session_id)

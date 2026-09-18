@@ -25,6 +25,12 @@ this public checklist is derived from its section 14 and stands on its own.
 
 ## Now — maintain AddAuth and learn from adoption
 
+- [x] Honor the Rails UUID/bigint generator setting across all authentication
+  tables, including UUID sessions, mixed references and three-mode bundled/ejected
+  session management. Local PostgreSQL and browser acceptance passes on Rails
+  8.0/8.1. Added in 0.5.0; see
+  [release availability](https://github.com/taimoorq/add_auth/releases).
+
 - [x] Optional password-signup confirmation, immediate transactional provisioning
   and session issuance, explicit unconfirmed-reset policy, password-only lifecycle
   and the complete commented Rails initializer. Local supported-matrix, stock/

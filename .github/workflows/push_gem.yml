@@ -14,6 +14,13 @@ on:
   push:
     tags:
       - "v*"
+      - "!v*-publisher"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -31,10 +38,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
       - name: Require tested release tree and matching version
-        run: ruby .github/scripts/release_gate.rb
+        run: env GITHUB_REF_NAME="$RELEASE_TAG" ruby .github/scripts/release_gate.rb
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
   push:
     needs: verify
@@ -50,6 +59,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
       - name: Set up Ruby
         uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1
         with:

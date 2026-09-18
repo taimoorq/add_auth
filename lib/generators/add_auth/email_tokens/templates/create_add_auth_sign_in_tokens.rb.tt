@@ -2,7 +2,7 @@ require "add_auth/rails/migration/key_type"
 
 class CreateAddAuthSignInTokens < ActiveRecord::Migration[8.0]
   def change
-    create_table :add_auth_sign_in_tokens do |t|
+    create_table :add_auth_sign_in_tokens, id: <%= authentication_primary_key_type %> do |t|
       t.references :user, type: AddAuth::Rails::Migration::KeyType.for(connection, :users), null: false, foreign_key: true
       t.string :digest, limit: 64, null: false
       t.string :identifier_digest, limit: 64, null: false

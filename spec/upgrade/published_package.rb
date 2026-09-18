@@ -13,7 +13,9 @@ RSpec.describe "Upgrade from the published AddAuth package" do
     baseline = File.expand_path(ENV.fetch("ADD_AUTH_BASELINE_GEM"))
     published = {
       "7c3dc3d95e85d74887d1a607f47d85d702e52e5b6771aac9fa8002f046581725" => "0.2.1",
-      "c66189b571c2acc47ef9574c045359956a97bf734692f28d29749aef8b2c8673" => "0.2.2"
+      "c66189b571c2acc47ef9574c045359956a97bf734692f28d29749aef8b2c8673" => "0.2.2",
+      "41944086bd4414e16a0db3da95caf6e5e1e09eb92369f4572d6309ee92e6c9a0" => "0.3.0",
+      "ae42155d2fda96a44af691ec32ed3d4a6ccb7ae3ecfb246ebc8cd3e14e0ad008" => "0.4.0"
     }
     checksum = Digest::SHA256.file(baseline).hexdigest
     expect(published).to have_key(checksum)
@@ -48,6 +50,15 @@ RSpec.describe "Upgrade from the published AddAuth package" do
       end
       expect(File.binread(manifest_path)).to eq(manifest)
       expect(File.binread(File.join(host.root, view))).to eq(original)
+      expect(host.runner(<<~RUBY)).to include("additive cursor migration verified")
+        connection = ActiveRecord::Base.connection
+        abort "cursor index missing" unless connection.indexes(:sessions).any? do |index|
+          index.name == "index_add_auth_session_cursor" && index.columns == %w[user_id created_at id]
+        end
+        abort "upgrade converted account keys" unless User.columns_hash.fetch("id").type == :integer
+        abort "upgrade converted session keys" unless Session.columns_hash.fetch("id").type == :integer
+        puts "additive cursor migration verified"
+      RUBY
       expect(host.runner(journey, {"ADD_AUTH_UPGRADE_PHASE" => "verify"})).to include("upgrade authority verified")
       # Delivery executes in a fresh worker process, outside the HTTP executor.
       expect(host.runner(<<~RUBY)).to include("baseline notification delivered")

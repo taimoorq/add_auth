@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/primary_key"
 require "generators/add_auth/feature_configuration"
 require "rails/generators/active_record"
 
@@ -8,6 +9,7 @@ module AddAuth
   module Generators
     class NotificationsGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include PrimaryKey
       include FeatureConfiguration
 
       source_root File.expand_path("templates", __dir__)

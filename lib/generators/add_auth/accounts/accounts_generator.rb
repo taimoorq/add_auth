@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/primary_key"
 require "rails/generators/active_record"
 
 module AddAuth
   module Generators
     class AccountsGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include PrimaryKey
 
       source_root File.expand_path("templates", __dir__)
       class_option :email_link, type: :boolean, default: true, desc: "Enable email sign-in as a step-up dependency"

@@ -24,9 +24,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
     browser = Capybara::Session.new(:add_auth_chrome, Rails.application)
     browser.visit "/sign-in"
     expect(browser).to have_css(".add_auth-panel")
-    browser.document.synchronize do
-      raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == (AddAuth.configuration.turbo_enabled ? "object" : "undefined")
-    end
+    AddAuthBrowserNavigation.wait_for_turbo(browser, enabled: AddAuth.configuration.turbo_enabled)
     browser.execute_script("window.addAuthNavigationMarker = true")
     capture(browser, "sign-in-desktop")
     browser.fill_in "Email address", with: user.email_address
@@ -48,9 +46,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
     if AddAuth.configuration.turbo_enabled
       Session.update_all(revoked_at: Time.current)
       browser.visit "/sign-in"
-      browser.document.synchronize do
-        raise Capybara::ElementNotFound unless browser.evaluate_script("typeof window.Turbo") == "object"
-      end
+      AddAuthBrowserNavigation.wait_for_turbo(browser, enabled: true)
       browser.execute_script('document.body.innerHTML = \'<turbo-frame id="account" src="/"></turbo-frame>\'')
       expect(browser).to have_css("h1", text: "Sign in")
       expect(browser).not_to have_text("Content missing")

@@ -20,6 +20,18 @@ Capybara.default_max_wait_time = 5
   end
 end
 
+module AddAuthBrowserNavigation
+  def self.wait_for_turbo(browser, enabled:)
+    expected = enabled ? "object" : "undefined"
+    # visit can finish before boot.js's asynchronous import settles. Retry only
+    # this observation within Capybara's normal timeout, never browser actions.
+    browser.document.synchronize do
+      actual = browser.evaluate_script("typeof window.Turbo")
+      raise Capybara::ElementNotFound, "Expected Turbo #{expected}, got #{actual}" unless actual == expected
+    end
+  end
+end
+
 # Chrome 152 can report a detached document as UnknownError while Turbo swaps
 # the body. Classify only this read failure as stale so Capybara reloads the
 # element within its normal timeout. Never retry actions or other driver errors.

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "generators/add_auth/primary_key"
 require "rails/generators/active_record"
 
 module AddAuth
@@ -8,6 +9,7 @@ module AddAuth
     # Optional persistence and routes; provider strategies remain disabled until configured.
     class ExternalIdentitiesGenerator < ::Rails::Generators::Base
       include ::Rails::Generators::Migration
+      include PrimaryKey
 
       source_root File.expand_path("templates", __dir__)
       def self.next_migration_number(dirname) = ::ActiveRecord::Generators::Base.next_migration_number(dirname)

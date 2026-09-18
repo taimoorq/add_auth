@@ -14,7 +14,7 @@ class AddAddAuthPasskeys < ActiveRecord::Migration[8.0]
     add_column :sessions, :authentication_policy_version, :integer, default: 0, null: false
     add_column :sessions, :authentication_credential_id, :string
     add_column :sessions, :authentication_uv, :boolean, default: false_default, null: false
-    create_table :add_auth_credentials do |t|
+    create_table :add_auth_credentials, id: <%= authentication_primary_key_type %> do |t|
       t.references :user, type: user_key_type, null: false, foreign_key: {on_delete: :cascade}
       t.string :external_id, null: false
       t.text :public_key, null: false
@@ -29,7 +29,7 @@ class AddAddAuthPasskeys < ActiveRecord::Migration[8.0]
       t.timestamps
     end
     add_index :add_auth_credentials, :external_id, unique: true
-    create_table :add_auth_ceremonies do |t|
+    create_table :add_auth_ceremonies, id: <%= authentication_primary_key_type %> do |t|
       t.string :digest, null: false
       t.string :challenge, null: false
       t.string :kind, null: false

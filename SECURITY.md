@@ -54,6 +54,10 @@ the currency policy).
 
 ## Supported versions
 
+UUID/integer session lookup, account-scoped pagination and revocation are also
+in scope. Version 0.5.0 adds UUID sessions and UUID authentication-table generation;
+primary keys must never substitute for browser/mobile bearer secrets.
+
 Until a 1.0 is released, only the latest published version receives security
 fixes. This table will be expanded once there are stable release lines to
 support.

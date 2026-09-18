@@ -29,26 +29,26 @@ for verification in a disposable host.
 
 ## Quickstart
 
-These commands target 0.4.0 and are available after its
-[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.4.0).
+These commands target 0.5.0 and are available after its
+[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.5.0).
 Check package availability before changing your app’s bundle.
 
 Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** these commands require the published `0.4.0` package.
+**Release availability:** these commands require the published `0.5.0` package.
 If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
 wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
 below before enabling sign-in for users.
 
 1. Keep `source "https://rubygems.org"` in your app’s Gemfile and add the
-   0.4 release line:
+   0.5 release line:
 
    ```ruby
    # Gemfile
-   gem "add_auth", "~> 0.4.0"
+   gem "add_auth", "~> 0.5.0"
    ```
 
    Bundler downloads the package from RubyGems and records the resolved
@@ -567,6 +567,35 @@ policy, durable security mail and challenge adapters. Optional account lifecycle
 adds registration, confirmation/reconfirmation, password reset, lock/unlock and
 account changes. Hosts retain account eligibility, resource authorization and
 provider registrations.
+
+### UUID and integer primary keys in 0.5.0
+
+Version 0.5.0 adds PostgreSQL UUID sessions and configurable primary keys for all
+AddAuth authentication tables. Integer apps retain the normal Rails defaults.
+These instructions become available after the 0.5.0 package is published.
+
+For a new PostgreSQL app, set Rails' generator preference in `config/application.rb`
+before generating authentication or AddAuth features:
+
+```ruby
+config.generators do |g|
+  g.orm :active_record, primary_key_type: :uuid
+end
+```
+
+AddAuth uses this setting for every table it creates. Leave it unset for Rails'
+bigint default, or set `:bigint` or `:integer` explicitly. References follow the
+actual target table, so UUID users can have bigint sessions and vice versa.
+The generated migration records its chosen type; later configuration changes do
+not change that migration or convert existing rows. Other key types are unsupported.
+
+For an existing installation, follow the
+[version-gated package upgrade](https://addauthgem.com/upgrading/#uuid-support).
+It covers the additive pagination index, ejected controller review, opaque
+pagination cursors, verification and rollback from older gems. Integer apps need
+no ID conversion. The [primary-key guide](https://addauthgem.com/uuid-primary-keys/)
+explains mixed schemas and the separate, app-owned migration needed to convert
+existing IDs. The published 0.4.0 package cannot manage UUID sessions.
 
 ## Optional integrations in 0.3.0
 

@@ -40,6 +40,8 @@ jobs:
         run: |
           gem fetch add_auth --version 0.2.1
           gem fetch add_auth --version 0.2.2
+          gem fetch add_auth --version 0.3.0
+          gem fetch add_auth --version 0.4.0
       - name: Run specs and package upgrades on both supported Rails lines
         run: |
           for rails in 8_0 8_1; do
@@ -50,7 +52,7 @@ jobs:
             ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
             ADD_AUTH_TURBO=0 bundle exec rspec spec/system
             ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-            for baseline in 0.2.1 0.2.2; do
+            for baseline in 0.2.1 0.2.2 0.3.0 0.4.0; do
               ADD_AUTH_BASELINE_GEM="$GITHUB_WORKSPACE/add_auth-${baseline}.gem" bundle exec rspec spec/upgrade/published_package.rb
             done
           done
@@ -126,6 +128,15 @@ jobs:
           done
         env:
           ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
+
+      - name: UUID and mixed authentication schemas and browser journeys
+        run: |
+          for rails in 8_0 8_1; do
+            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
+            bundle exec rspec spec/keys/authentication_tables.rb
+          done
+        env:
+          ADD_AUTH_KEYS_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
 
   audit:
     name: Dependency audit

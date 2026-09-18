@@ -106,6 +106,20 @@ disposable database named `add_auth_test`:
 ADD_AUTH_TEST_DATABASE_URL=postgresql://localhost/add_auth_test bundle exec rspec spec/add_auth/rails spec/requests
 ```
 
+The UUID and mixed-key acceptance fixture requires Chrome and the disposable
+`add_auth_external_test` PostgreSQL database. It creates and removes its own
+random schemas, installs the built candidate into stock generated Rails hosts,
+and checks all primary/foreign keys plus session, mail, mobile and WebAuthn flows.
+It also verifies bundled/ejected session navigation with Turbo, JavaScript without
+Turbo, and no JavaScript. From this checkout:
+
+```sh
+ADD_AUTH_KEYS_DATABASE_URL=postgresql://localhost/add_auth_external_test BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec rspec spec/keys/authentication_tables.rb
+```
+
+Run this on both supported Rails lines; replace `8_1` with `8_0` for the other.
+The normal root suite retains the default integer/SQLite installation coverage.
+
 ## Optional account and OAuth development acceptance
 
 Account migration and external identities are development work and remain
@@ -300,14 +314,19 @@ this optional bundle; they are not AddAuth runtime dependencies.
 From this checkout, fetch the official baseline and run the isolated rehearsal:
 
 ```sh
-gem fetch add_auth --version 0.2.1
-ADD_AUTH_BASELINE_GEM="$PWD/add_auth-0.2.1.gem" bundle exec rspec spec/upgrade/published_package.rb
+for baseline in 0.2.1 0.2.2 0.3.0 0.4.0; do
+  gem fetch add_auth --version "$baseline"
+  ADD_AUTH_BASELINE_GEM="$PWD/add_auth-${baseline}.gem" bundle exec rspec spec/upgrade/published_package.rb
+done
 ```
 
 The spec verifies the baseline archive against its recorded registry SHA256,
 installs it in a temporary Rails host, persists synthetic authentication state,
 installs the current built candidate, then reinstalls the baseline. It checks
-pending jobs, revoked/spent authority and preserved ejections. The drift fixture
+pending jobs, revoked/spent authority, preserved integer keys, the additive
+session-pagination index and reviewed ejections. Application upgrade instructions
+live in the [public upgrade guide](https://addauthgem.com/upgrading/#uuid-support);
+primary-key conversion is a separate host migration. The drift fixture
 is explicitly synthetic. CI runs this command on both Rails lines and every
 supported Ruby. Version equality in an unreleased checkout does not imply identical
 packages; each archive is installed at its own temporary path.

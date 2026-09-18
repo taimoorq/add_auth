@@ -25,12 +25,13 @@ jobs:
       contents: read
       actions: read
       checks: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Require the exact tested default-branch commit and matching version
+      - name: Require tested release tree and matching version
         run: ruby .github/scripts/release_gate.rb
         env:
           GH_TOKEN: ${{ github.token }}

@@ -75,7 +75,19 @@ BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle install
 BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec rspec
 ```
 
-CI runs both lines on Ruby 3.3, 3.4 and 4.0. Focused commands:
+CI runs both lines on Ruby 3.3, 3.4 and 4.0 for each pull request. It checks out
+the PR head explicitly; branch protection requires it to be up to date before
+merge. Merging does not repeat the full suite. Release verification reuses the
+latest successful PR run only when the merged commit has the same complete Git
+tree, and all required checks belong to that run and head. Changed files, failed
+or pending reruns, and missing provenance block publication. CodeQL and the
+owner-approved OIDC publishing environment remain separate gates.
+
+To request fresh CI on the default branch, run
+`gh workflow run ci.yml --ref master`. A successful exact-commit manual run can
+also satisfy release verification. This does not bypass required PR checks.
+
+Focused commands:
 
 ```sh
 bundle exec rspec spec/add_auth/rails/email_tokens_spec.rb

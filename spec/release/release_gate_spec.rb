@@ -4,6 +4,14 @@ require "spec_helper"
 require_relative "../../.github/scripts/release_gate"
 
 RSpec.describe AddAuthReleaseGate do
+  it "limits the owner-authorized transition to 0.5.0 and release infrastructure" do
+    expect(described_class.transition_allowed?(version: "0.5.0", changed: described_class::TRANSITION_FILES)).to be(true)
+    expect(described_class.transition_allowed?(version: "0.5.1", changed: described_class::TRANSITION_FILES)).to be(false)
+    expect(described_class.transition_allowed?(version: "0.5.0", changed: [])).to be(false)
+    %w[lib/add_auth/core/sessions.rb add_auth.gemspec Gemfile app/controllers/add_auth/sessions_controller.rb].each do |path|
+      expect(described_class.transition_allowed?(version: "0.5.0", changed: described_class::TRANSITION_FILES + [path])).to be(false)
+    end
+  end
   let(:run) { {"head_sha" => "commit", "head_branch" => "master", "event" => "push", "status" => "completed", "conclusion" => "success", "run_number" => 10, "check_suite_id" => 1} }
   let(:checks) do
     described_class::REQUIRED_CHECKS.map.with_index do |name, index|

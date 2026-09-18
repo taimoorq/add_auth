@@ -2,9 +2,14 @@
 
 require "json"
 require "open3"
+require_relative "../../lib/add_auth/version"
 
 module AddAuthReleaseGate
   REQUIRED_CHECKS = ["Ruby 3.3", "Ruby 3.4", "Ruby 4.0", "PostgreSQL", "Dependency audit"].freeze
+  # Owner-authorized one-release transition: product code must remain identical
+  # to merged PR #16, whose full CI passed before duplicate runs were cancelled.
+  TRANSITION_COMMIT = "4df6be069a3dd428fbfe1f7afb792a075d0f14f4"
+  TRANSITION_FILES = %w[.github/scripts/release_gate.rb .github/workflows/ci.yml .github/workflows/push_gem.yml CONTRIBUTING.md spec/release/release_gate_spec.rb].freeze
 
   module_function
 
@@ -56,10 +61,27 @@ module AddAuthReleaseGate
   end
 
   def verify_provenance!(repo:, sha:, branch:)
+    if AddAuth::VERSION == "0.5.0" && repo == "taimoorq/add_auth" && sha != TRANSITION_COMMIT
+      command("git", "merge-base", "--is-ancestor", TRANSITION_COMMIT, sha)
+      changed = command("git", "diff", "--name-only", TRANSITION_COMMIT, sha, "--").lines.map(&:strip)
+      if transition_allowed?(version: AddAuth::VERSION, changed: changed)
+        verify_merged_pr!(repo: repo, sha: TRANSITION_COMMIT, branch: branch)
+        puts "Owner-authorized 0.5.0 CI transition: product tree unchanged from tested PR #16"
+        return true
+      end
+    end
     runs = runs_for(repo, sha)
     if runs.any? { |run| run["head_branch"] == branch && %w[push workflow_dispatch].include?(run["event"]) }
       return verify!(sha: sha, branch: branch, runs: runs, checks: checks_for(repo, sha))
     end
+    verify_merged_pr!(repo: repo, sha: sha, branch: branch)
+  end
+
+  def transition_allowed?(version:, changed:)
+    version == "0.5.0" && !changed.empty? && (changed - TRANSITION_FILES).empty?
+  end
+
+  def verify_merged_pr!(repo:, sha:, branch:)
     prs = JSON.parse(command("gh", "api", "--paginate", "--slurp", "repos/#{repo}/commits/#{sha}/pulls?per_page=100")).flatten
     candidates = prs.select { |pr| pr["merge_commit_sha"] == sha && pr.dig("base", "ref") == branch }
     raise "Release commit needs one associated merged PR" unless candidates.size == 1
@@ -85,7 +107,6 @@ module AddAuthReleaseGate
     sha = command("git", "rev-parse", "HEAD")
     branch = JSON.parse(command("gh", "api", "repos/#{repo}")).fetch("default_branch")
     command("git", "merge-base", "--is-ancestor", sha, "origin/#{branch}")
-    require_relative "../../lib/add_auth/version"
     raise "Release tag does not match the gem version" unless ENV.fetch("GITHUB_REF_NAME") == "v#{AddAuth::VERSION}"
     verify_provenance!(repo: repo, sha: sha, branch: branch)
     puts "Release provenance verified for #{sha}"

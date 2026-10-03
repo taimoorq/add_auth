@@ -24,7 +24,7 @@ RSpec.configure { |config|
   config.order = :defined
 }
 
-RSpec.describe "Actual Google provider journeys" do
+RSpec.describe "Actual Google provider journeys", browser: true do
   before do
     AddAuth.configuration.rate_limit_store.clear
     @key = OpenSSL::PKey::RSA.generate(2048)

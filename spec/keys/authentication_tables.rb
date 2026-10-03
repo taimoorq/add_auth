@@ -74,7 +74,7 @@ RSpec.describe "Configured authentication primary keys in a generated PostgreSQL
         RUBY
         acceptance = File.expand_path("../acceptance/session_keys.rb", __dir__)
         output = host.runner("require #{acceptance.inspect}")
-        expect(output).to include("0 failures")
+        expect(output).to include("8 examples, 0 failures")
         puts "Bundled #{user_type}/#{session_type}/#{table_type}: #{output.lines.grep(/examples, .*failures/).join.strip}"
         # Ejection is verified in the same generated host against the same keys.
         if user_type == :uuid && session_type == :uuid
@@ -84,7 +84,7 @@ RSpec.describe "Configured authentication primary keys in a generated PostgreSQL
             %i[views controllers javascript].each { |kind| ejection.install(kind: kind) }
           RUBY
           output = host.runner("require #{acceptance.inspect}")
-          expect(output).to include("0 failures")
+          expect(output).to include("8 examples, 0 failures")
           puts "Ejected UUID: #{output.lines.grep(/examples, .*failures/).join.strip}"
         end
       end

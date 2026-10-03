@@ -14,11 +14,13 @@ RSpec.describe AddAuth::Core::Intake do
   end
 
   it "fails closed when the provider is unavailable" do
-    result = intake(challenge: AddAuth::Core::Challenge::Test.new(mode: :unavailable)).call(
+    bypasses = []
+    result = intake(challenge: AddAuth::Core::Challenge::Test.new(mode: :unavailable), bypasses: bypasses).call(
       identifier: "Person@example.test", ip: "192.0.2.1", action: :sign_in, challenge_token: "token"
     )
 
     expect(result).to eq(:challenge_unavailable)
+    expect(bypasses).to be_empty
   end
 
   it "requires an explicit open policy to proceed during an outage and records it" do

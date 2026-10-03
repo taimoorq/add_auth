@@ -8,6 +8,13 @@ Rake::Task.define_task(:environment)
 load File.expand_path("../../../lib/tasks/add_auth.rake", __dir__)
 
 RSpec.describe "add_auth:doctor", type: :task, database: true do
+  it "exits unsuccessfully when session expiry and revocation columns are missing" do
+    allow(Session).to receive(:column_names).and_return(Session.column_names - %w[expires_at last_seen_at revoked_at])
+    task = Rake::Task["add_auth:doctor"]
+    task.reenable
+    expect { task.invoke }.to raise_error(SystemExit) { |error| expect(error.success?).to be(false) }
+  end
+
   it "passes for the fully migrated dummy host" do
     task = Rake::Task["add_auth:doctor"]
     task.reenable

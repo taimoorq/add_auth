@@ -52,7 +52,7 @@ RSpec.describe "Microsoft OIDC installed-package browser acceptance" do
   end
 
   %w[state nonce issuer audience signature expired].each do |mode|
-    it "rejects #{mode} through the real protocol library before granting Core authority" do
+    it "rejects #{mode} through the real protocol library before granting Core authority", protocol_negative: true do
       @fixture.start(mode: mode)
       result = @fixture.submit
       expect(result.fetch("sessions")).to be_empty

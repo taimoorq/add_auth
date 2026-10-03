@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "add_auth"
+require_relative "support/rspec_configuration"
 
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
@@ -12,7 +13,7 @@ RSpec.configure do |config|
   end
 
   config.shared_context_metadata_behavior = :apply_to_host_groups
-  config.filter_run_when_matching :focus
+  config.filter_run_when_matching :focus unless ENV["CI"]
   config.disable_monkey_patching!
   config.order = :random
   Kernel.srand config.seed

@@ -3,7 +3,7 @@
 require "rails_helper"
 require_relative "../support/browser"
 
-RSpec.describe "Sign-in browser journeys", database: true do
+RSpec.describe "Sign-in browser journeys", database: true, browser: true, browser_mode: :javascript do
   around do |example|
     previous = ActionController::Base.allow_forgery_protection
     ActionController::Base.allow_forgery_protection = true
@@ -60,7 +60,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
     browser&.quit
   end
 
-  it "requests and confirms a delivered link on another browser with JavaScript disabled" do
+  it "requests and confirms a delivered link on another browser with JavaScript disabled", browser_mode: :no_js do
     requester = Capybara::Session.new(:add_auth_no_js, Rails.application)
     receiver = Capybara::Session.new(:add_auth_no_js, Rails.application)
     previous_adapter = ActiveJob::Base.queue_adapter
@@ -91,7 +91,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
   end
 
   %i[add_auth_chrome add_auth_no_js].each do |driver|
-    it "keeps a delivered bound link usable only in its requesting browser with #{driver}" do
+    it "keeps a delivered bound link usable only in its requesting browser with #{driver}", browser_mode: ((driver == :add_auth_no_js) ? :no_js : :javascript) do
       original_binding = AddAuth.configuration.email_link.same_browser
       AddAuth.configuration.email_link.same_browser = true
       previous_adapter = ActiveJob::Base.queue_adapter
@@ -121,7 +121,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
     end
   end
 
-  it "reviews and revokes a session with JavaScript disabled" do
+  it "reviews and revokes a session with JavaScript disabled", browser_mode: :no_js do
     browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     browser.visit "/sign-in"
     browser.fill_in "Email address", with: user.email_address
@@ -151,7 +151,7 @@ RSpec.describe "Sign-in browser journeys", database: true do
   end
 
   %i[add_auth_chrome add_auth_no_js].each do |driver|
-    it "rejects the previous browser cookie after a replacement login and logout with #{driver}" do
+    it "rejects the previous browser cookie after a replacement login and logout with #{driver}", browser_mode: ((driver == :add_auth_no_js) ? :no_js : :javascript) do
       browser = Capybara::Session.new(driver, Rails.application)
       previous_cookie = nil
       2.times do |attempt|

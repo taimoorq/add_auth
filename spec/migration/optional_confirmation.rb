@@ -15,7 +15,7 @@ RSpec.describe "Optional confirmation in a populated Devise destination" do
       host.prepare_accounts
       host.password_destination(profile: profile, passkeys: false)
       OptionalConfirmationHost.prepare(host)
-      expect(OptionalConfirmationHost.verify(host)).to include("0 failures")
+      expect(OptionalConfirmationHost.verify(host)).to include("19 examples, 0 failures")
     ensure
       host&.cleanup
     end

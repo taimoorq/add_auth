@@ -3,7 +3,7 @@
 require "rspec/autorun"
 require_relative "../support/browser"
 
-RSpec.describe "Installed authentication key contracts" do
+RSpec.describe "Installed authentication key contracts", browser: true do
   let(:runtime) { AddAuth::Rails::Runtime }
   let(:service) { runtime.sessions }
   let(:user) { User.create!(email_address: "keys-#{SecureRandom.hex(8)}@example.test", password: "correct-password") }

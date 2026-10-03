@@ -16,18 +16,23 @@ RSpec.describe "Persistence generator in a fresh Rails host" do
       development_lock = File.binread(development_lockfile)
       environment = {"BUNDLE_GEMFILE" => bundle, "RAILS_ENV" => "test", "SECRET_KEY_BASE_DUMMY" => "1"}
       ruby = RbConfig.ruby
-      stdout, stderr, status = Open3.capture3(environment, ruby, Gem.bin_path("railties", "rails"),
-        "new", host, "--skip-test", "--skip-asset-pipeline", "--skip-bundle", "--skip-git",
-        "--skip-hotwire", "--skip-javascript", "--skip-jbuilder", "--skip-bootsnap")
-      expect(status.success?).to be(true), stdout + stderr
+      AddAuthTestReporting.measure("new") do
+        stdout, stderr, status = Open3.capture3(environment, ruby, Gem.bin_path("railties", "rails"),
+          "new", host, "--skip-test", "--skip-asset-pipeline", "--skip-bundle", "--skip-git",
+          "--skip-hotwire", "--skip-javascript", "--skip-jbuilder", "--skip-bootsnap")
+        expect(status.success?).to be(true), stdout + stderr
+      end
       run = ->(*args) do
-        output, errors, result = Open3.capture3(environment, ruby, "bin/rails", *args, chdir: host)
-        expect(result.success?).to be(true), output + errors
-        output
+        phase = (args.first == "runner") ? "rails_runner" : args.first(2).join(":")
+        AddAuthTestReporting.measure(phase) do
+          output, errors, result = Open3.capture3(environment, ruby, "bin/rails", *args, chdir: host)
+          expect(result.success?).to be(true), output + errors
+          output
+        end
       end
       artifact = File.join(parent, "add_auth.gem")
       gemspec = Gem::Specification.load(File.expand_path("../../add_auth.gemspec", __dir__))
-      Gem::Package.build(gemspec, false, false, artifact)
+      AddAuthTestReporting.measure("fresh_package_build") { Gem::Package.build(gemspec, false, false, artifact) }
       installed = Gem::Installer.at(artifact, install_dir: File.join(parent, "gems"), ignore_dependencies: true, wrappers: false).install
       # Bundler's path source needs the installed gem's serialized specification;
       # runtime files above came exclusively from the built gem archive.
@@ -40,8 +45,10 @@ RSpec.describe "Persistence generator in a fresh Rails host" do
       environment["BUNDLER_ORIG_BUNDLE_GEMFILE"] = host_bundle
       environment["BUNDLE_LOCKFILE"] = "#{host_bundle}.lock"
       environment["BUNDLER_ORIG_BUNDLE_LOCKFILE"] = "#{host_bundle}.lock"
-      output, errors, result = Open3.capture3(environment, ruby, Gem.bin_path("bundler", "bundle"), "install", "--local", chdir: host)
-      expect(result.success?).to be(true), output + errors
+      AddAuthTestReporting.measure("bundle_install") do
+        output, errors, result = Open3.capture3(environment, ruby, Gem.bin_path("bundler", "bundle"), "install", "--local", chdir: host)
+        expect(result.success?).to be(true), output + errors
+      end
       run.call("generate", "authentication")
       expect(File.binread(development_lockfile)).to eq(development_lock)
       # Exercise session-only adoption before any email model or table exists,

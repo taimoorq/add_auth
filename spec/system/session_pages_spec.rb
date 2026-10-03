@@ -3,9 +3,9 @@
 require "rails_helper"
 require_relative "../support/browser"
 
-RSpec.describe "Session page navigation", database: true do
+RSpec.describe "Session page navigation", database: true, browser: true, browser_mode: :javascript do
   %i[add_auth_chrome add_auth_no_js].each do |driver|
-    it "navigates and revokes an older session with #{driver}" do
+    it "navigates and revokes an older session with #{driver}", browser_mode: ((driver == :add_auth_no_js) ? :no_js : :javascript) do
       user = User.create!(email_address: "pages@example.test", password: "correct-password")
       browser = Capybara::Session.new(driver, Rails.application)
       browser.visit "/sign-in"

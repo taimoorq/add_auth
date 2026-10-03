@@ -52,6 +52,6 @@ module OptionalConfirmationHost
 
   def verify(host)
     path = File.expand_path("../acceptance/optional_confirmation.rb", __dir__)
-    host.runner("require #{path.inspect}")
+    AddAuthTestReporting.verify_examples!(host.runner("require #{path.inspect}"), expected: 19)
   end
 end

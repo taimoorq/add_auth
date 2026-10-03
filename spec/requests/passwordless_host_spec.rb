@@ -87,8 +87,8 @@ RSpec.describe "Passwordless and public Rails hosts", type: :request, database: 
     # later requests cannot inherit its passwordless association cache.
     unless ENV["ADD_AUTH_ISOLATED_HOST_SPEC"] == example.id
       require "open3"
-      output, status = Open3.capture2e({"ADD_AUTH_ISOLATED_HOST_SPEC" => example.id},
-        RbConfig.ruby, "-S", "bundle", "exec", "rspec", example.id,
+      output, status = Open3.capture2e({"ADD_AUTH_ISOLATED_HOST_SPEC" => example.id, "ADD_AUTH_RSPEC_MAIN" => nil},
+        RbConfig.ruby, Gem.bin_path("bundler", "bundle"), "exec", "rspec", example.id,
         chdir: File.expand_path("../..", __dir__))
       expect(status.success?).to be(true), output
       next

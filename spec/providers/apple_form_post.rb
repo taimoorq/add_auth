@@ -55,7 +55,7 @@ RSpec.describe "Apple HTTPS cross-site form_post browser acceptance" do
   end
 
   %w[state nonce signature issuer audience issued_at expired].each do |mode|
-    it "rejects mismatched #{mode} through the actual strategy without Core authority" do
+    it "rejects mismatched #{mode} through the actual strategy without Core authority", protocol_negative: true do
       @fixture.start(mode: mode)
       result = @fixture.submit
       expect(result.fetch("callbacks").last).to include("status" => 422, "fetch_site" => "cross-site", "cookies" => ["add_auth_apple_callback"])

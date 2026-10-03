@@ -12,7 +12,7 @@ RSpec.describe "Optional confirmation in a stock Rails host" do
       host.run("generate", "authentication")
       host.run("db:migrate")
       OptionalConfirmationHost.prepare(host)
-      expect(OptionalConfirmationHost.verify(host)).to include("0 failures")
+      expect(OptionalConfirmationHost.verify(host)).to include("19 examples, 0 failures")
     end
   end
 end

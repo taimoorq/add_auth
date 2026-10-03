@@ -127,21 +127,17 @@ class DeviseSourceHost < IsolatedHost
   end
 
   def password_destination(profile:, passkeys: true)
-    reference_directory = File.join(directory, "reference")
-    FileUtils.mkdir_p(reference_directory)
-    reference = IsolatedHost.new(reference_directory)
     artifact = self.class.candidate(directory)
-    reference.install(artifact, label: "package")
-    reference.run("generate", "authentication")
+    reference = IsolatedHost.stock_authentication_reference(artifact)
     # Adopt actual Rails-generator model/controller/cookie contracts in this
     # disposable fixture, retaining the populated source table and primary keys.
     %w[app/controllers app/models app/mailers app/views config/routes.rb].each do |path|
-      source = File.join(reference.root, path)
+      source = File.join(reference, path)
       destination = File.join(root, path)
       FileUtils.rm_rf(destination)
       FileUtils.cp_r(source, destination)
     end
-    session_migration = Dir[File.join(reference.root, "db/migrate/*_create_sessions.rb")].fetch(0)
+    session_migration = Dir[File.join(reference, "db/migrate/*_create_sessions.rb")].fetch(0)
     content = File.read(session_migration).sub("t.references :user,", "t.references :user, type: AddAuth::Rails::Migration::KeyType.for(connection, :users),")
     File.write(File.join(root, "db/migrate", File.basename(session_migration)), %(require "add_auth/rails/migration/key_type"\n#{content})) unless profile == :aligned
     FileUtils.rm_f(File.join(root, "config/initializers/devise.rb"))

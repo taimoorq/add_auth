@@ -120,7 +120,8 @@ RSpec.describe "Solid Queue in a separate database" do
       worker = host.spawn("bin/jobs", "start", "--skip-recurring", log: "restarted-worker.log")
       expect(host.runner(<<~RUBY)).to include("restart suppressed replay")
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 30
-        until SolidQueue::Job.where(finished_at: nil).none?
+        # The runner query cache is not invalidated by another worker process.
+        until SolidQueue::Job.uncached { SolidQueue::Job.where(finished_at: nil).none? }
           abort "restarted worker did not drain" if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
           sleep 0.1
         end

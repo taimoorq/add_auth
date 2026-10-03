@@ -11,8 +11,10 @@ RSpec.describe "Core load boundary" do
       digest = AddAuth::Core::Digest::Hmac.new(salt: "test", secret: "s" * 32)
       abort "digest mismatch" unless digest.matches?(digest.digest("token"), "token")
     RUBY
+    # A profile cache can install runtime dependencies outside the global gem home.
+    dependency_paths = (Gem.path + Gem.loaded_specs.values.map(&:base_dir)).uniq
     output, errors, status = Bundler.with_unbundled_env do
-      Open3.capture3(RbConfig.ruby, "-Ilib", "-e", code)
+      Open3.capture3({"GEM_PATH" => dependency_paths.join(File::PATH_SEPARATOR)}, RbConfig.ruby, "-Ilib", "-e", code)
     end
     expect(status.success?).to be(true), output + errors
   end

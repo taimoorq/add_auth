@@ -126,7 +126,7 @@ RSpec.describe AddAuth::Rails::Stores::EmailTokens, database: true do
     existing = user.sessions.create!
     record = issue_link
     raw = service.delivery_token(digest: record.digest)
-    expect { consume_link(raw) { existing } }.to raise_error(AddAuth::Error)
+    expect { consume_link(raw) { existing } }.to raise_error(AddAuth::Error, /finalizer/)
     expect(record.reload.consumed_at).to be_nil
     expect(Session.count).to eq(1)
   end

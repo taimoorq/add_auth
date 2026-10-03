@@ -13,7 +13,7 @@ ActionController::Base.allow_forgery_protection = true
 ActiveJob::Base.queue_adapter = :inline
 RSpec.configure { |config| config.formatter = :documentation }
 
-RSpec.describe "Native Apple package journeys" do
+RSpec.describe "Native Apple package journeys", browser: true do
   let(:client) { ActionDispatch::Integration::Session.new(Rails.application) }
   let(:provider) { AddAuth.configuration.external_identities.native_provider("apple-ios") }
   let(:key) { OpenSSL::PKey::RSA.generate(2048) }

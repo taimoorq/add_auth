@@ -75,8 +75,20 @@ BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle install
 BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec rspec
 ```
 
-CI runs both lines on Ruby 3.3, 3.4 and 4.0 for each pull request. It checks out
-the PR head explicitly; branch protection requires it to be up to date before
+The Rails 8.1 profiles require 8.1.4 or a later 8.1 patch so existing lockfiles
+cannot retain the previous verification baseline. AddAuth's runtime floor
+remains Rails 8.0. Lockfiles are local development output; to refresh an already
+installed bundle within its supported line, run
+`BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle update rails --conservative`.
+
+CI runs independent product, migration and provider shards for both Rails lines
+on Ruby 3.3, 3.4 and 4.0 for each pull request. Each shard owns its checkout,
+bundle and disposable databases. The required Ruby checks verify all six shards
+for that Ruby, all scheduled invocations, nonempty outer/inner RSpec results,
+browser coverage and the exact source/runtime identity. A failed or cancelled
+matrix cannot produce a successful aggregate. PostgreSQL has eight independent
+Rails/contract shards and the same verification under its required check name.
+CI checks out the PR head explicitly; branch protection requires it to be up to date before
 merge. Merging does not repeat the full suite. Release verification reuses the
 latest successful PR run only when the merged commit has the same complete Git
 tree, and all required checks belong to that run and head. Changed files, failed
@@ -95,15 +107,43 @@ bundle exec rspec spec/generators/persistence_generator_spec.rb
 bundle exec rspec spec/system/sign_in_spec.rb
 bundle exec rspec spec/system/passkeys_spec.rb
 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-ADD_AUTH_TURBO=0 bundle exec rspec spec/system
-ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
+ADD_AUTH_TURBO=0 bundle exec rspec spec/system --tag browser_mode:javascript
+ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system --tag browser_mode:javascript
 ```
 
 Browser changes must pass in bundled and ejected UI with Turbo enabled, with
 JavaScript enabled and Turbo absent (`ADD_AUTH_TURBO=0`), and with JavaScript
-disabled (covered by the same suite). The plain navigation run exercises real
+disabled (covered once in each default bundled/ejected run). The plain navigation run exercises real
 passkey and captcha modules too. Keep this matrix when adding browser journeys;
 no-JS coverage alone does not establish operation without Turbo.
+
+Browser groups use `browser: true` to include Capybara's synchronized RSpec
+matchers while retaining explicit sessions for multiple browsers and virtual
+authenticators. Root browser examples declare `browser_mode: :javascript` or
+`:no_js`; update the coverage inventory in `.github/scripts/ci_matrix.rb` when
+adding a journey. New rejection tests start with valid evidence and vary one
+condition. Focus is permitted locally and rejected in CI; empty suites fail.
+
+To rehearse one CI shard with an already installed profile:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/rails_8_1.gemfile bundle exec ruby .github/scripts/ci_suite.rb ruby 8_1 product
+```
+
+Replace `product` with `migration`/`providers` and use the corresponding
+`devise_rails`/`providers_rails` Gemfile. CI artifacts contain each invocation's
+log, JSON/profile reports (including installed-host runners), host phase timings
+and a source-bound receipt. `ADD_AUTH_CI_REPORT_ROOT` selects a fresh output
+directory; existing report output is rejected. A superseded PR run is cancelled
+and its replacement must execute the complete matrix.
+
+`ADD_AUTH_FIXTURE_CACHE` optionally selects a disposable setup cache. Candidate
+packages are keyed by the complete gemspec/metadata/payload bytes; stock Rails
+authentication reference files also include Rails/Ruby/fixture identity. Every
+cache hit verifies its file checksums. Each acceptance app/database and candidate
+copy remains private. Fresh generation, idempotency, reload and published-package
+upgrade assertions are retained. With no configured path the cache is temporary
+and removed at process exit; do not cache a mutable host or database.
 
 `add_auth:email_tokens` is an internal persistence generator: it creates an
 additive token table migration and model for review. It does not run migrations,

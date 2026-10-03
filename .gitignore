@@ -1,4 +1,6 @@
 /.bundle/
+/gemfiles/.bundle/
+/vendor/bundle/
 /tmp/
 /pkg/
 /spec/dummy/tmp/

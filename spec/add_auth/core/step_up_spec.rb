@@ -15,9 +15,9 @@ RSpec.describe AddAuth::Core::StepUp do
   end
 
   def evidence(method:, user_id: user.id, session_id: 42, verified_at: now - 60,
-    user_verification: false, credential_id: nil)
+    user_verification: false, credential_id: nil, session_digest: "generation-1", credential_version: user.password_digest)
     described_class::Evidence.new(user_id:, session_id:, method:, verified_at:,
-      user_verification:, credential_id:, session_digest: "generation-1", credential_version: user.password_digest)
+      user_verification:, credential_id:, session_digest:, credential_version:)
   end
 
   it "returns a purpose/session-bound grant for recent allowed evidence" do
@@ -32,7 +32,7 @@ RSpec.describe AddAuth::Core::StepUp do
 
   it "keeps freshness separate from method strength and requires UV for passkeys" do
     expect(service.authorize(user: user, session_id: 42, purpose: :manage_passkeys,
-      evidence: evidence(method: :passkey, user_verification: false))).to be_failure
+      evidence: evidence(method: :passkey, user_verification: false, credential_id: "cred-1"))).to be_failure
     result = service.authorize(user: user, session_id: 42, purpose: :manage_passkeys,
       evidence: evidence(method: :passkey, user_verification: true, credential_id: "cred-1"))
     expect(result).to be_success
@@ -40,24 +40,46 @@ RSpec.describe AddAuth::Core::StepUp do
     expect(result.credential.user_verification).to be(true)
     allow(clock).to receive(:now).and_return(now + 301)
     expect(service.authorize(user: user, session_id: 42, purpose: :manage_passkeys,
-      evidence: evidence(method: :passkey, user_verification: true))).to be_failure
+      evidence: evidence(method: :passkey, user_verification: true, credential_id: "cred-1"))).to be_failure
   end
 
-  it "fails generically for stale, mismatched, unknown or disallowed evidence" do
-    cases = [
-      evidence(method: :password, verified_at: now - 601),
-      evidence(method: :password, user_id: 8),
-      evidence(method: :password, session_id: 99),
-      evidence(method: :passkey),
-      evidence(method: :password)
-    ]
-    results = cases.map do |proof|
-      purpose = (proof.method == :passkey) ? :manage_profile : :manage_passkeys
-      service.authorize(user: user, session_id: 42, purpose:, evidence: proof)
+  {
+    "expired evidence" => {verified_at: Time.utc(2026, 9, 6, 11, 50)},
+    "another account" => {user_id: 8},
+    "another session" => {session_id: 99},
+    "missing bearer generation" => {session_digest: nil},
+    "changed password version" => {credential_version: "different-version"}
+  }.each do |condition, attributes|
+    it "fails generically for #{condition} with otherwise valid password evidence" do
+      expect(service.authorize(user: user, session_id: 42, purpose: :manage_profile,
+        evidence: evidence(method: :password))).to be_success
+      result = service.authorize(user: user, session_id: 42, purpose: :manage_profile,
+        evidence: evidence(method: :password, **attributes))
+      expect(result.reason).to eq(:elevation_required)
     end
-    results << service.authorize(user: user, session_id: 42, purpose: :unknown, evidence: evidence(method: :password))
-    expect(results).to all(be_failure)
-    expect(results.map(&:reason).uniq).to eq([:elevation_required])
+  end
+
+  %i[unknown manage_passkeys].each do |purpose|
+    it "rejects #{purpose} without changing otherwise valid password evidence" do
+      proof = evidence(method: :password)
+      expect(service.authorize(user: user, session_id: 42, purpose: :manage_profile, evidence: proof)).to be_success
+      expect(service.authorize(user: user, session_id: 42, purpose: purpose, evidence: proof).reason).to eq(:elevation_required)
+    end
+  end
+
+  it "bounds a grant by the proof's remaining freshness window" do
+    result = service.authorize(user: user, session_id: 42, purpose: :manage_profile,
+      evidence: evidence(method: :password, verified_at: now - 599))
+    expect(result).to be_success
+    expect(result.credential.expires_at).to eq(now + 1)
+  end
+
+  it "rejects strong passkey evidence missing only the credential identity" do
+    attributes = {method: :passkey, user_verification: true, credential_id: "cred-1"}
+    expect(service.authorize(user: user, session_id: 42, purpose: :manage_passkeys,
+      evidence: evidence(**attributes))).to be_success
+    expect(service.authorize(user: user, session_id: 42, purpose: :manage_passkeys,
+      evidence: evidence(**attributes.merge(credential_id: nil))).reason).to eq(:elevation_required)
   end
 
   it "rejects future evidence and invalid window configuration" do
@@ -92,9 +114,9 @@ RSpec.describe "Current credential policy" do
     grant = policy.authorize(user: user, session_id: 2, purpose: :manage_keys, evidence: proof).credential
     args = {user: user, user_id: 1, session_id: 2, session_digest: "bearer-1", purpose: :manage_keys, now: now + 1}
     expect(grant.valid_for?(**args)).to be(true)
+    expect(grant.valid_for?(**args.merge(session_digest: "bearer-2"))).to be(false)
     current = false
     expect(grant.valid_for?(**args)).to be(false)
-    expect(grant.valid_for?(**args.merge(session_digest: "bearer-2"))).to be(false)
     default = AddAuth::Core::StepUp.new(purposes: {manage_keys: {methods: [:passkey]}})
     expect(default.authorize(user: user, session_id: 2, purpose: :manage_keys, evidence: proof)).to be_failure
   end

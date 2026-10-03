@@ -4,7 +4,7 @@ require "rails_helper"
 require_relative "../support/browser"
 require_relative "../support/reauthentication"
 
-RSpec.describe "Reauthentication browser journeys", database: true do
+RSpec.describe "Reauthentication browser journeys", database: true, browser: true, browser_mode: :javascript do
   include_context "public reauthentication"
   let!(:user) { User.create!(email_address: "reauth@example.test", password: "correct-password") }
 
@@ -22,7 +22,7 @@ RSpec.describe "Reauthentication browser journeys", database: true do
 
   %i[add_auth_chrome add_auth_no_js].each do |driver|
     %i[password email_link].each do |method|
-      it "verifies with #{method} in #{driver} then waits for a separate confirmation" do
+      it "verifies with #{method} in #{driver} then waits for a separate confirmation", browser_mode: ((driver == :add_auth_no_js) ? :no_js : :javascript) do
         browser = Capybara::Session.new(driver, Rails.application)
         browser.visit "/sign-in"
         browser.fill_in "Email address", with: user.email_address

@@ -2,7 +2,7 @@
 
 require_relative "../support/browser"
 
-RSpec.describe "Optional signup in Chrome" do
+RSpec.describe "Optional signup in Chrome", browser: true do
   %i[turbo html no_js].each do |mode|
     it "registers, signs in, resets, changes email and deletes through #{mode} navigation" do
       config = AddAuth.configuration

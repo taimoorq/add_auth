@@ -2,6 +2,11 @@
 
 require "capybara/rspec"
 require "selenium-webdriver"
+require_relative "rspec_configuration"
+
+# Sessions are explicit because journeys use multiple browsers/authenticators.
+# Include the synchronized matchers without adding Rails system lifecycle hooks.
+RSpec.configure { |config| config.include Capybara::RSpecMatchers, browser: true }
 
 Capybara.server = :puma, {Silent: true}
 Capybara.default_max_wait_time = 5

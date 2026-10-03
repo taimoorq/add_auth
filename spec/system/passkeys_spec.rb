@@ -4,7 +4,7 @@ require "rails_helper"
 require_relative "../support/browser"
 require_relative "../support/passkey_runtime"
 
-RSpec.describe "Passkey browser journeys", database: true do
+RSpec.describe "Passkey browser journeys", database: true, browser: true, browser_mode: :javascript do
   include_context "passkey runtime"
   let!(:user) { User.create!(email_address: "browser-passkey@example.test", password: "correct-password") }
 
@@ -134,7 +134,7 @@ RSpec.describe "Passkey browser journeys", database: true do
     browser&.quit
   end
 
-  it "shows an honest no-JS unavailable state and keeps permitted password access usable" do
+  it "shows an honest no-JS unavailable state and keeps permitted password access usable", browser_mode: :no_js do
     browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     @origin = "http://localhost:#{browser.server.port}"
     AddAuth.configuration.passkeys.origins = [@origin]

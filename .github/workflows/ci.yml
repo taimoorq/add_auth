@@ -7,9 +7,14 @@ on:
 permissions:
   contents: read
 
+# A new PR head replaces obsolete work. Different PRs/manual branches are independent.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: "Ruby ${{ matrix.ruby }}"
+    name: "Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }} / ${{ matrix.suite }}"
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -24,11 +29,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Keep in sync with the version-floor policy in the workspace repo's
-        # AGENTS.md: the oldest entry here must always be a currently
-        # security-patched Ruby series (https://endoflife.date/ruby), not
-        # just add_auth.gemspec's stated floor. Re-check quarterly.
+        # Oldest Ruby remains security-supported; keep floors/required gates aligned.
         ruby: ["3.3", "3.4", "4.0"]
+        rails: ["8_0", "8_1"]
+        suite: [product, migration, providers]
+        include:
+          - suite: product
+            profile: rails
+          - suite: migration
+            profile: devise_rails
+          - suite: providers
+            profile: providers_rails
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/${{ matrix.profile }}_${{ matrix.rails }}.gemfile
+      ADD_AUTH_CI_REPORT_ROOT: ${{ github.workspace }}/tmp/ci-reports
+      ADD_AUTH_MICROSOFT_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,45 +53,48 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
-      - name: Fetch the published upgrade baselines
-        run: |
-          gem fetch add_auth --version 0.2.1
-          gem fetch add_auth --version 0.2.2
-          gem fetch add_auth --version 0.3.0
-          gem fetch add_auth --version 0.4.0
-      - name: Run specs and package upgrades on both supported Rails lines
-        run: |
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec
-            bundle exec rspec spec/upgrade/confirmation_policy.rb
-            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-            ADD_AUTH_TURBO=0 bundle exec rspec spec/system
-            ADD_AUTH_TURBO=0 ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/system
-            for baseline in 0.2.1 0.2.2 0.3.0 0.4.0; do
-              ADD_AUTH_BASELINE_GEM="$GITHUB_WORKSPACE/add_auth-${baseline}.gem" bundle exec rspec spec/upgrade/published_package.rb
-            done
-          done
-      - name: Optional Devise migration and provider-library acceptance
-        run: |
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec spec/migration/*.rb
-            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/account_lifecycle.rb spec/migration/optional_confirmation.rb spec/generators/optional_confirmation_generator_spec.rb
-            export BUNDLE_GEMFILE="$PWD/gemfiles/providers_rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec spec/providers/*.rb
-            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/providers/google_sign_in.rb spec/providers/apple_form_post.rb spec/providers/microsoft_browser.rb spec/providers/apple_native_host.rb
-          done
-        env:
-          ADD_AUTH_MICROSOFT_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
+      - name: Run the complete shard and record outer/inner RSpec evidence
+        run: bundle exec ruby .github/scripts/ci_suite.rb ruby "${{ matrix.rails }}" "${{ matrix.suite }}"
       - name: Lint
+        if: matrix.suite == 'product'
         run: bundle exec standardrb
+      - name: Upload shard evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-ruby-${{ matrix.ruby }}-${{ matrix.rails }}-${{ matrix.suite }}
+          path: ${{ env.ADD_AUTH_CI_REPORT_ROOT }}
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
 
-  postgres:
-    name: PostgreSQL
+  ruby-gate:
+    name: "Ruby ${{ matrix.ruby }}"
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.3", "3.4", "4.0"]
+    env:
+      ADD_AUTH_CI_DEPENDENCY_RESULT: ${{ needs.test.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ci-${{ github.run_id }}-${{ github.run_attempt }}-ruby-${{ matrix.ruby }}-*
+          path: ${{ runner.temp }}/ci-evidence
+          merge-multiple: false
+          digest-mismatch: error
+      - name: Require all six shards, full browser partitions and successful RSpec evidence
+        run: ruby .github/scripts/ci_matrix.rb ruby "${{ matrix.ruby }}" "${{ runner.temp }}/ci-evidence"
+
+  postgres-shards:
+    name: "PostgreSQL / Rails ${{ matrix.rails }} / ${{ matrix.suite }}"
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -88,6 +106,30 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres -d add_auth_test"
           --health-interval 10s --health-timeout 5s --health-retries 5
+    strategy:
+      fail-fast: false
+      matrix:
+        rails: ["8_0", "8_1"]
+        suite: [stores, migration, native, keys]
+        include:
+          - suite: stores
+            profile: rails
+          - suite: migration
+            profile: devise_rails
+          - suite: native
+            profile: providers_rails
+          - suite: keys
+            profile: rails
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/${{ matrix.profile }}_${{ matrix.rails }}.gemfile
+      ADD_AUTH_CI_REPORT_ROOT: ${{ github.workspace }}/tmp/ci-reports
+      ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
+      ADD_AUTH_EXTERNAL_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
+      ADD_AUTH_KEYS_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
+      ADD_AUTH_MIGRATION_POSTGRES: "1"
+      PGUSER: postgres
+      PGPASSWORD: test-only
+      PGHOST: localhost
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -97,49 +139,40 @@ jobs:
         with:
           ruby-version: "3.4"
           bundler-cache: true
-      - name: Real PostgreSQL contracts, concurrency and request journeys
-        run: |
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec spec/add_auth/rails spec/requests
-          done
-        env:
-          ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
-      - name: Populated Devise migration and external enrollment on PostgreSQL
-        run: |
-          ruby -rpg -e 'PG.connect(dbname: "postgres").exec("CREATE DATABASE add_auth_external_test")'
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/devise_rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec spec/migration/devise_source.rb spec/migration/account_adoption.rb spec/migration/source_bridge.rb spec/migration/account_lifecycle.rb spec/migration/optional_confirmation.rb spec/migration/backfill_checkpoint.rb spec/migration/compatible_rollback.rb
-            ADD_AUTH_EJECT_UI=1 bundle exec rspec spec/migration/optional_confirmation.rb
-            ADD_AUTH_EXTERNAL_DATABASE_URL="postgresql://postgres:test-only@localhost:5432/add_auth_external_test" bundle exec rspec spec/migration/external_enrollment.rb spec/generators/external_identities_generator_spec.rb
-          done
-        env:
-          PGUSER: postgres
-          PGPASSWORD: test-only
-          PGHOST: localhost
-          ADD_AUTH_MIGRATION_POSTGRES: "1"
+      - name: Create the separate disposable enrollment database
+        run: bundle exec ruby -rpg -e 'PG.connect(dbname:"postgres").exec("CREATE DATABASE add_auth_external_test")'
+      - name: Run PostgreSQL shard, concurrency and generated-host contracts
+        run: bundle exec ruby .github/scripts/ci_suite.rb postgres "${{ matrix.rails }}" "${{ matrix.suite }}"
+      - name: Upload shard evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-${{ github.run_id }}-${{ github.run_attempt }}-postgres-${{ matrix.rails }}-${{ matrix.suite }}
+          path: ${{ env.ADD_AUTH_CI_REPORT_ROOT }}
+          if-no-files-found: error
+          retention-days: 14
+          archive: true
 
-      - name: Native Apple single-use request races on PostgreSQL
-        run: |
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/providers_rails_${rails}.gemfile"
-            bundle install
-            bundle exec rspec spec/providers/apple_native.rb
-          done
-        env:
-          ADD_AUTH_TEST_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_test
-
-      - name: UUID and mixed authentication schemas and browser journeys
-        run: |
-          for rails in 8_0 8_1; do
-            export BUNDLE_GEMFILE="$PWD/gemfiles/rails_${rails}.gemfile"
-            bundle exec rspec spec/keys/authentication_tables.rb
-          done
-        env:
-          ADD_AUTH_KEYS_DATABASE_URL: postgresql://postgres:test-only@localhost:5432/add_auth_external_test
+  postgres:
+    name: PostgreSQL
+    needs: postgres-shards
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      ADD_AUTH_CI_DEPENDENCY_RESULT: ${{ needs.postgres-shards.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ci-${{ github.run_id }}-${{ github.run_attempt }}-postgres-*
+          path: ${{ runner.temp }}/ci-evidence
+          merge-multiple: false
+          digest-mismatch: error
+      - name: Require all eight PostgreSQL shards and successful RSpec evidence
+        run: ruby .github/scripts/ci_matrix.rb postgres "3.4" "${{ runner.temp }}/ci-evidence"
 
   audit:
     name: Dependency audit

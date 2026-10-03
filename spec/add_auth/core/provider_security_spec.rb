@@ -5,21 +5,9 @@ require "webmock/rspec"
 WebMock.disable_net_connect!(allow_localhost: true)
 
 RSpec.describe "Provider protocol audit" do
-  it "A13 classifies a provider internal error as unavailable" do
-    provider = AddAuth::Core::Challenge::Turnstile.new(site_key: "site", secret_key: "audit-secret",
-      transport: ->(**_) { [200, JSON.generate(:success => false, "error-codes" => ["internal-error"])] })
-    expect(provider.verify(token: "audit-token", remote_ip: nil, action: :sign_in)).to be_unavailable
-  end
-
   it "A14 redacts provider secrets from inspection" do
     provider = AddAuth::Core::Challenge::Turnstile.new(site_key: "site", secret_key: "audit-secret")
     expect(provider.inspect).not_to include("audit-secret")
-  end
-
-  it "A15 rejects malformed reCAPTCHA scores outside the provider range" do
-    provider = AddAuth::Core::Challenge::Recaptcha.new(site_key: "site", secret_key: "audit-secret",
-      transport: ->(**_) { [200, JSON.generate(success: true, action: "sign_in", score: 5.0, hostname: "example.test")] })
-    expect(provider.verify(token: "audit-token", remote_ip: nil, action: :sign_in)).to be_rejected
   end
 
   it "A16 exercises the real HTTPS request path through WebMock" do
@@ -70,7 +58,7 @@ RSpec.describe "Strict provider payloads" do
   end
 
   it "requires a finite numeric score in range and mode-correct script URLs" do
-    [-1, 1.1, "0.9", nil, true].each do |score|
+    [-1, 1.1, 5.0, "0.9", nil, true].each do |score|
       provider = AddAuth::Core::Challenge::Recaptcha.new(site_key: "site", secret_key: "secret",
         transport: ->(**) { [200, JSON.generate(success: true, hostname: "example.test", action: "sign_in", score: score)] })
       expect(provider.verify(token: "token", remote_ip: nil, action: :sign_in)).to be_rejected

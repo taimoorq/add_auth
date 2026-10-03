@@ -3,7 +3,7 @@
 require "rails_helper"
 require_relative "../support/browser"
 
-RSpec.describe "Challenge browser lifecycle", database: true do
+RSpec.describe "Challenge browser lifecycle", database: true, browser: true, browser_mode: :javascript do
   let!(:user) { User.create!(email_address: "challenge@example.test", password: "correct-password") }
   around do |example|
     config = AddAuth.configuration
@@ -153,7 +153,7 @@ RSpec.describe "Challenge browser lifecycle", database: true do
     expect(browser).to have_button("Sign in with password", disabled: false)
   end
 
-  it "gives an honest server rejection with JavaScript disabled" do
+  it "gives an honest server rejection with JavaScript disabled", browser_mode: :no_js do
     AddAuth.configuration.challenge = AddAuth::Core::Challenge::Test.new(mode: :rejected)
     @browser = Capybara::Session.new(:add_auth_no_js, Rails.application)
     @browser.visit "/session/new"

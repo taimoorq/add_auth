@@ -36,24 +36,6 @@ RSpec.describe "Authentication audit regression probes", type: :request, databas
     expect(statuses).to include(429), "eight guesses all reached verification: #{statuses.inspect}"
   end
 
-  it "A03 bounds a grant by proof freshness rather than minting a new full window" do
-    now = Time.now
-    clock = double(now: now)
-    proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :password, verified_at: now - 599, session_digest: "generation-1", credential_version: user.password_digest)
-    result = AddAuth::Core::StepUp.new(clock: clock, purposes: {manage_profile: {methods: [:password]}})
-      .authorize(user: user, session_id: 42, purpose: :manage_profile, evidence: proof)
-    expect(result.credential.expires_at).to be <= now + 1
-  end
-
-  it "A04 rejects strong evidence without a credential identity" do
-    now = Time.now
-    proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: 42, method: :passkey, verified_at: now,
-      user_verification: true, credential_id: nil)
-    result = AddAuth::Core::StepUp.new(purposes: {manage_passkeys: {methods: [:passkey], require_passkey: true}})
-      .authorize(user: user, session_id: 42, purpose: :manage_passkeys, evidence: proof)
-    expect(result).to be_failure
-  end
-
   def authorized_grant(session, purpose: :manage_profile, clock: Time)
     proof = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: session.id, method: :password, verified_at: clock.now, session_digest: session.token_digest, credential_version: user.password_digest)
     result = AddAuth::Core::StepUp.new(clock: clock, purposes: {purpose => {methods: [:password]}})

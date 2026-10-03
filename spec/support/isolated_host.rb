@@ -5,6 +5,7 @@ require "tmpdir"
 require "fileutils"
 require "rubygems/package"
 require "rubygems/installer"
+require_relative "fixture_cache"
 
 # A separate process, bundle and database for package/operations acceptance.
 # Never boots or changes the shared spec/dummy fixture.
@@ -15,7 +16,8 @@ class IsolatedHost
     @directory = directory
     @root = File.join(directory, "host")
     @environment = {"RAILS_ENV" => "test", "DATABASE_URL" => nil, "RAILS_MASTER_KEY" => nil,
-                    "SECRET_KEY_BASE" => "isolated-host-test-secret-" * 4, "ADD_AUTH_TEST_DATABASE_URL" => nil}
+                    "SECRET_KEY_BASE" => "isolated-host-test-secret-" * 4, "ADD_AUTH_TEST_DATABASE_URL" => nil,
+                    "ADD_AUTH_RSPEC_MAIN" => nil}
     execute(Gem.bin_path("railties", "rails"), "new", root, "--skip-test", "--skip-asset-pipeline",
       "--skip-bundle", "--skip-git", "--skip-hotwire", "--skip-javascript", "--skip-jbuilder", "--skip-bootsnap")
     bundle = File.join(root, "Gemfile")
@@ -71,10 +73,27 @@ class IsolatedHost
   end
 
   def self.candidate(directory)
-    specification = Gem::Specification.load(File.expand_path("../../add_auth.gemspec", __dir__))
-    artifact = File.join(directory, "candidate.gem")
-    Gem::Package.build(specification, false, false, artifact)
-    artifact
+    source = File.expand_path("../..", __dir__)
+    specification = Gem::Specification.load(File.join(source, "add_auth.gemspec"))
+    parts = [["gemspec", File.binread(File.join(source, "add_auth.gemspec"))], ["metadata", specification.to_ruby]]
+    parts.concat(specification.files.map { |path| [path, File.binread(File.join(source, path))] })
+    cached = AddAuthFixtureCache.fetch(namespace: "candidate", key: AddAuthFixtureCache.fingerprint(parts)) do |path|
+      Dir.chdir(source) { Gem::Package.build(specification, false, false, File.join(path, "candidate.gem")) }
+    end
+    # Callers receive a private copy, including upgrade fixtures that retain it.
+    FileUtils.cp(File.join(cached, "candidate.gem"), File.join(directory, "candidate.gem"))
+    File.join(directory, "candidate.gem")
+  end
+
+  def self.stock_authentication_reference(artifact)
+    parts = [["package", File.binread(artifact)], ["fixture", File.binread(__FILE__)],
+      ["ruby", RUBY_DESCRIPTION], ["dependencies", Gem.loaded_specs.sort.map { |name, spec| "#{name}=#{spec.version}" }.join("\n")]]
+    cached = AddAuthFixtureCache.fetch(namespace: "stock-authentication", key: AddAuthFixtureCache.fingerprint(parts)) do |path|
+      reference = IsolatedHost.new(path)
+      reference.install(artifact, label: "package")
+      reference.run("generate", "authentication")
+    end
+    File.join(cached, "host")
   end
 
   def spawn(*arguments, variables: {}, log: "worker.log")
@@ -85,8 +104,17 @@ class IsolatedHost
   private
 
   def execute(*arguments, chdir: directory, variables: {})
-    output, error, result = Open3.capture3(environment.merge(variables), RbConfig.ruby, *arguments, chdir: chdir)
-    raise "Isolated host #{arguments.first(2).join(" ")} failed:\n#{output}\n#{error}" unless result.success?
-    output
+    phase = if arguments[1] == "runner"
+      "rails_runner"
+    elsif arguments[1] == "generate"
+      "generate:#{arguments[2]}"
+    else
+      arguments[1]
+    end
+    AddAuthTestReporting.measure(phase) do
+      output, error, result = Open3.capture3(environment.merge(variables), RbConfig.ruby, *arguments, chdir: chdir)
+      raise "Isolated host #{arguments.first(2).join(" ")} failed:\n#{output}\n#{error}" unless result.success?
+      output
+    end
   end
 end

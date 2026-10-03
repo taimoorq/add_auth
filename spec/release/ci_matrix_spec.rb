@@ -81,7 +81,7 @@ RSpec.describe AddAuthCIMatrix do
     expect(verify).to be(true)
   end
 
-  it "excludes installed Bundler dependencies while detecting candidate source changes" do
+  it "excludes Bundler dependencies and profile config while detecting candidate source changes" do
     ignore_rules = File.read(File.expand_path("../../.gitignore", __dir__))
     Dir.chdir(@directory) do
       _output, status = Open3.capture2e("git", "init", "--quiet")
@@ -93,6 +93,8 @@ RSpec.describe AddAuthCIMatrix do
       original = described_class.source_identity
       FileUtils.mkdir_p("vendor/bundle/gems")
       File.write("vendor/bundle/gems/dependency.rb", "runtime-specific dependency")
+      FileUtils.mkdir_p("gemfiles/.bundle")
+      File.write("gemfiles/.bundle/config", "BUNDLE_PATH: vendor/bundle\n")
       expect(described_class.source_identity).to eq(original)
       expect(described_class.source_inventory.keys).to eq(%w[.gitignore candidate.rb])
       File.write("candidate.rb", "changed")

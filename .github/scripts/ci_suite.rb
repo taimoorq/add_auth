@@ -22,7 +22,8 @@ module AddAuthCISuite
     sha, status = Open3.capture2("git", "rev-parse", "HEAD")
     raise "Cannot identify candidate" unless status.success?
     receipt = {"kind" => kind, "ruby" => ruby, "rails" => rails, "suite" => suite, "sha" => sha.strip,
-               "source" => AddAuthCIMatrix.source_identity, "run_id" => ENV.fetch("GITHUB_RUN_ID", "local"),
+               "source" => AddAuthCIMatrix.source_identity, "source_files" => AddAuthCIMatrix.source_inventory,
+               "run_id" => ENV.fetch("GITHUB_RUN_ID", "local"),
                "attempt" => ENV.fetch("GITHUB_RUN_ATTEMPT", "1"), "status" => "running", "invocations" => []}
     File.write(File.join(directory, "receipt.json"), JSON.pretty_generate(receipt))
     begin

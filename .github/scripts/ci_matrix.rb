@@ -50,12 +50,19 @@ module AddAuthCIMatrix
     "rails"
   end
 
-  def source_identity
+  def source_paths
     paths, status = Open3.capture2("git", "ls-files", "--cached", "--others", "--exclude-standard", "-z")
     raise "Cannot inventory the CI source" unless status.success?
+    paths.split("\0").sort.select { |path| File.file?(path) }
+  end
+
+  def source_inventory
+    source_paths.to_h { |path| [path, Digest::SHA256.file(path).hexdigest] }
+  end
+
+  def source_identity
     digest = Digest::SHA256.new
-    paths.split("\0").sort.each do |path|
-      next unless File.file?(path)
+    source_paths.each do |path|
       content = File.binread(path)
       digest << path.bytesize.to_s << ":" << path << content.bytesize.to_s << ":" << content
     end

@@ -81,6 +81,27 @@ RSpec.describe AddAuthCIMatrix do
     expect(verify).to be(true)
   end
 
+  it "excludes installed Bundler dependencies while detecting candidate source changes" do
+    ignore_rules = File.read(File.expand_path("../../.gitignore", __dir__))
+    Dir.chdir(@directory) do
+      _output, status = Open3.capture2e("git", "init", "--quiet")
+      expect(status.success?).to be(true)
+      File.write(".gitignore", ignore_rules)
+      File.write("candidate.rb", "original")
+      _output, status = Open3.capture2e("git", "add", ".gitignore", "candidate.rb")
+      expect(status.success?).to be(true)
+      original = described_class.source_identity
+      FileUtils.mkdir_p("vendor/bundle/gems")
+      File.write("vendor/bundle/gems/dependency.rb", "runtime-specific dependency")
+      expect(described_class.source_identity).to eq(original)
+      File.write("candidate.rb", "changed")
+      expect(described_class.source_identity).not_to eq(original)
+      File.write("candidate.rb", "original")
+      File.write("new_candidate.rb", "new source")
+      expect(described_class.source_identity).not_to eq(original)
+    end
+  end
+
   %w[failure cancelled skipped].each do |status|
     it "rejects #{status} matrix results even if every artifact says passed" do
       complete_gate

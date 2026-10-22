@@ -29,17 +29,13 @@ for verification in a disposable host.
 
 ## Quickstart
 
-These commands target 0.5.1 and are available after its
-[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.5.1).
-Check package availability before changing your app’s bundle.
+These commands target 0.5.1, which is
+[published on RubyGems](https://rubygems.org/gems/add_auth/versions/0.5.1).
+See [release status](https://addauthgem.com/release-status/) for supported versions.
 
 Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
-
-**Release availability:** these commands require the published `0.5.1` package.
-If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
-wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
 below before enabling sign-in for users.
 
@@ -206,8 +202,9 @@ of them out remotely. It shows a rough description of each one (like browser
 and device) and never anything that could be used to impersonate it. The
 “Sign out everywhere” path requires fresh password proof by default. With
 reauthentication enabled it also accepts other methods allowed for that purpose.
-Confirmation revokes every active session, including this browser, and redirects
-to sign-in.
+Confirmation revokes every active session, including this browser, along with
+pending email and account links (such as an address change), passkey and
+provider ceremonies and mobile handoffs, then redirects to sign-in.
 
 If your app already has real logged-in users, deploying this will sign all of
 them out -- unless you set `config.session.legacy_bridge_until` to a cutoff
@@ -228,18 +225,24 @@ Cursors do not authorize access to another account.
 
 Configure these operating limits and scheduled tasks for your app:
 
-- Authentication budgets remain five attempts per identifier and 30 per IP,
-  per action. Overlapping counters prevent a fresh burst at a five-minute
-  boundary; a limit can last up to six minutes. Attempts that are denied also
-  count. The shared cache must support atomic increments and retain counters
-  for six minutes. Keep server clocks synchronized and monitor cache eviction.
-  Upgrade every web worker to apply the new bound; changing the counter format
-  resets existing rate budgets once during deployment.
-- Anonymous passkey sign-in options share an additional budget across IPs:
-  `config.passkeys.anonymous_limit = 1000`. Set a positive integer appropriate
-  to your traffic. Exhaustion returns 429 before creating a ceremony; bound
-  reauthentication, registration and completion retain their separate gates.
-  This limits creation rate, not total retained rows during a cleanup outage.
+- Authentication budgets are 30 attempts per IP and five per identifier, per
+  action. The IP budget is checked first. The identifier budget is charged only
+  after a configured CAPTCHA passes, so requests rejected by the IP limit or the
+  CAPTCHA do not use it up. Without a CAPTCHA, every attempt that passes the IP
+  limit counts. Overlapping counters prevent a fresh burst at a five-minute
+  boundary; a limit can last up to six minutes. The shared cache must support
+  atomic increments and retain counters for six minutes. Keep server clocks
+  synchronized and monitor cache eviction. Upgrade every web worker to apply
+  the new bound; changing the counter format resets existing rate budgets once
+  during deployment.
+- Passkey sign-in option requests use their own IP budget, separate from
+  password sign-in, so loading the sign-in page doesn't use up password
+  attempts. Anonymous passkey ceremonies also have
+  `config.passkeys.anonymous_limit = 1000` per IPv4 address or IPv6 /64 every
+  five minutes. Set a positive integer appropriate to your traffic. Exhaustion
+  returns 429 before creating a ceremony; bound reauthentication, registration
+  and completion retain their separate gates. This limits creation rate, not
+  total retained rows during a cleanup outage.
 - Schedule `bin/rails add_auth:deliver_pending` every minute with the same
   configuration and shared cache as the web processes. It removes expired
   ceremonies and records completion using the cache's read/write operations.
@@ -500,6 +503,12 @@ report them. Rerunning a generator never silently advances
 an old baseline or overwrites your code. Keep controller policy calls, browser
 cleanup, CSRF and cache protections intact.
 
+After upgrading to 0.5.1, refresh ejected account and passkey controllers and
+views. The account confirmation page now offers "Confirm and keep" and "Confirm
+without" for a linked sign-in provider, and an older ejected form removes the
+link. An older ejected passkeys controller falls back to one shared anonymous
+passkey budget.
+
 `add_auth:views --only=passkeys` includes management and recovery; `--only=step_up`
 includes reauthentication. Ejected JavaScript lives in `app/javascript/add_auth`
 and is served by the fixed asset routes. Mailers resolve host template overrides.
@@ -572,7 +581,6 @@ provider registrations.
 
 Version 0.5.0 adds PostgreSQL UUID sessions and configurable primary keys for all
 AddAuth authentication tables. Integer apps retain the normal Rails defaults.
-These instructions become available after the 0.5.0 package is published.
 
 For a new PostgreSQL app, set Rails' generator preference in `config/application.rb`
 before generating authentication or AddAuth features:

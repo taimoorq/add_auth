@@ -100,6 +100,27 @@ RSpec.describe "Session management", type: :request, database: true do
     expect(other.session.reload.revoked_at).to be_present
     expect(cookies[:session_id]).to be_blank
   end
+  it "retires outstanding account proofs and ceremonies when signing out everywhere" do
+    current = sign_in
+    other = User.create!(email_address: "bystander@example.test", password: "other-password")
+    proof = ->(owner, digest) {
+      AddAuthSignInToken.create!(user_id: owner.id, digest: digest, identifier_digest: "i" * 64, purpose: "reauthentication",
+        expires_at: 10.minutes.from_now, delivery_payload: "encrypted")
+    }
+    pending = proof.call(user, "p" * 64)
+    unrelated = proof.call(other, "q" * 64)
+    ceremony = AddAuthCeremony.create!(digest: "pending-ceremony", challenge: "challenge", kind: "registration",
+      browser_digest: "binding", configuration_digest: "config", user_id: user.id, expires_at: 5.minutes.from_now)
+
+    post "/sessions/revoke-all", params: {password: "correct-password"}
+    expect(response).to have_http_status(:see_other)
+    expect(current.reload.revoked_at).to be_present
+    expect(pending.reload.revoked_at).to be_present
+    expect(pending.delivery_payload).to be_nil
+    expect(ceremony.reload.consumed_at).to be_present
+    expect(unrelated.reload.revoked_at).to be_nil
+  end
+
   it "breaks session management out of a Turbo Frame without caching the authenticated page" do
     post "/sign-in/password", params: {email_address: user.email_address, password: "correct-password"}
     get "/sessions", headers: {"Turbo-Frame" => "account"}

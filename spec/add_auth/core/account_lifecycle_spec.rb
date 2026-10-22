@@ -8,7 +8,7 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
   let(:account_type) do
     Struct.new(:id, :email_address, :password_digest, :add_auth_authority,
       :confirmed_at, :unconfirmed_email, :locked_at, :disabled_at, :deleted_at,
-      :add_auth_manual_lock, :add_auth_provisioned_at)
+      :add_auth_manual_lock, :add_auth_provisioned_at, :add_auth_locked_until, :failed_attempts)
   end
   let(:proof_type) do
     Struct.new(:user, :purpose, :digest, :request_id, :address_digest,
@@ -30,12 +30,13 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
   let(:mapper) { ->(_profile) { {} } }
   let(:token) { "ac1:" + "a" * 43 }
   let(:record) { nil }
+  let(:bindings) { nil }
   subject(:accounts) do
     described_class.new(store: store, digest: digest, delivery_cipher: cipher, policy: policy,
       password_policy: ->(password) { password.length >= 12 && password.bytesize <= 72 },
       trusted_address: ->(account) { account.email_address }, clock: clock,
       random: double(uuid: "issuance", urlsafe_base64: "a" * 43), notify: notify,
-      sessions: sessions, step_up_policy: step_up, profile_attributes: mapper)
+      sessions: sessions, step_up_policy: step_up, profile_attributes: mapper, external_bindings: bindings)
   end
 
   before do
@@ -126,6 +127,91 @@ RSpec.describe AddAuth::Core::AccountLifecycle do
       expect(accounts.consume(token: token, purpose: :confirm).reason).to eq(:revoked_token)
       expect(accounts.preview(token: [], purpose: :confirm).reason).to eq(:invalid_credentials)
       expect(accounts.preview(token: token, purpose: :unknown).success?).to be(false)
+    end
+  end
+
+  # Pre-account takeover: someone else enrolled this address with their own
+  # provider account before the mailbox owner proved the address.
+  context "with a provider binding made before the address was confirmed" do
+    let(:bound) { {7 => ["attacker-google"]} }
+    let(:bindings) do
+      double("external bindings").tap do |port|
+        allow(port).to receive(:provider_ids) { |user_id:| bound.fetch(user_id, []).uniq.sort }
+        allow(port).to receive(:revoke_all_in_transaction) { |user_id:, at:| bound.delete(user_id).to_a.size }
+      end
+    end
+    let(:record) { @proof }
+    before do
+      accounts.issue(identifier: user.email_address, purpose: :confirm)
+      allow(cipher).to receive(:decrypt) { JSON.generate(token: token, recipient: user.email_address, purpose: "confirm") }
+    end
+
+    it "names the bound provider in the inert preview and the delivered proof" do
+      expect(accounts.preview(token: token, purpose: :confirm).credential).to eq(["attacker-google"])
+      expect(accounts.send(:delivery_details, user, @proof)).to include(providers: ["attacker-google"], purpose: "confirm")
+      expect(bindings).not_to have_received(:revoke_all_in_transaction)
+    end
+
+    it "revokes the unadopted binding when the mailbox owner confirms without choosing to keep it" do
+      expect(accounts.consume(token: token, purpose: :confirm).success?).to be(true)
+      expect(bindings).to have_received(:revoke_all_in_transaction).with(user_id: 7, at: now).once
+      expect(user.confirmed_at).to eq(now)
+      expect(bound).to be_empty
+    end
+
+    it "treats anything but an explicit true as a removal" do
+      ["keep", 1, nil].each do |choice|
+        bound[7] = ["attacker-google"]
+        user.confirmed_at = nil
+        @proof.consumed_at = nil
+        expect(accounts.consume(token: token, purpose: :confirm, keep_providers: choice).success?).to be(true)
+        expect(bound).to be_empty
+      end
+    end
+
+    it "keeps the binding only on the address owner's explicit choice" do
+      expect(accounts.consume(token: token, purpose: :confirm, keep_providers: true).success?).to be(true)
+      expect(bindings).not_to have_received(:revoke_all_in_transaction)
+      expect(bound).to eq(7 => ["attacker-google"])
+    end
+
+    it "does not reopen the choice once the address has been confirmed" do
+      user.confirmed_at = now - 60
+      expect(accounts.preview(token: token, purpose: :confirm).success?).to be(false)
+      user.unconfirmed_email = "next@example.test"
+      expect(accounts.send(:unadopted_providers, user)).to be_empty
+      expect(bindings).not_to have_received(:provider_ids)
+    end
+  end
+
+  context "with an automatic password lock" do
+    let(:record) { @proof }
+    before do
+      user.confirmed_at = now - 86_400
+      accounts.issue(identifier: user.email_address, purpose: :reset_password)
+      allow(store).to receive(:replace_password)
+    end
+
+    it "clears a brute-force lock and its counter on a proved reset" do
+      user.locked_at = now - 10
+      user.add_auth_locked_until = now + 3600
+      user.failed_attempts = 20
+      allow(store).to receive(:inspect_token) { [user, record] }
+      # The lock changed the account version; reissue as a real host would.
+      accounts.issue(identifier: user.email_address, purpose: :reset_password)
+      expect(accounts.consume(token: token, purpose: :reset_password, password: "valid-account-password").success?).to be(true)
+      expect([user.locked_at, user.add_auth_locked_until, user.failed_attempts]).to eq([nil, nil, 0])
+      expect(store).to have_received(:revoke_authority).with(user: user, at: now)
+    end
+
+    it "never clears a manual lock" do
+      user.locked_at = now - 10
+      user.add_auth_manual_lock = true
+      user.failed_attempts = 3
+      accounts.issue(identifier: user.email_address, purpose: :reset_password)
+      expect(accounts.consume(token: token, purpose: :reset_password, password: "valid-account-password").success?).to be(true)
+      expect(user.locked_at).to eq(now - 10)
+      expect(user.failed_attempts).to eq(3)
     end
   end
 

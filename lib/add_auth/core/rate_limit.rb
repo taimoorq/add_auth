@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "ipaddr"
+
 module AddAuth
   module Core
     class RateLimit
@@ -24,6 +26,15 @@ module AddAuth
           raise AddAuth::Error, "rate limit store must support atomic increment"
         end
         counts.all? { |count| count <= limit }
+      end
+
+      # One budget per IPv4 address or IPv6 /64, which a single client
+      # commonly controls in full.
+      def self.network(ip)
+        address = IPAddr.new(ip.to_s).native
+        address.ipv6? ? "#{address.mask(64)}/64" : address.to_s
+      rescue IPAddr::Error
+        "unknown"
       end
     end
   end

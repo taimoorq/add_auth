@@ -178,6 +178,25 @@ RSpec.describe AddAuth::Core::Sessions, database: true do
     expect(service.resume(signed_value: other.bearer)).to be_nil
   end
 
+  it "retires every outstanding proof through the authority port only with a valid sign-out grant" do
+    revoked = []
+    port = ->(user_id:, at:) { revoked << [user_id, at] }
+    guarded = described_class.new(store: store, digest: digest, eligible: eligible, clock: clock, revoke_authority: port)
+    current = guarded.start(user: user, method: :password)
+    step_up = AddAuth::Core::StepUp.new(clock: clock,
+      purposes: {sign_out_everywhere: {methods: [:password]}, manage_profile: {methods: [:password]}})
+    grant_for = ->(purpose) {
+      evidence = AddAuth::Core::StepUp::Evidence.new(user_id: user.id, session_id: current.session.id,
+        method: :password, verified_at: now - 30, session_digest: current.session.token_digest, credential_version: user.password_digest)
+      step_up.authorize(user: user, session_id: current.session.id, purpose: purpose, evidence: evidence).credential
+    }
+
+    expect(guarded.revoke_all(user: user, session: current.session, grant: grant_for.call(:manage_profile))).to be(false)
+    expect(revoked).to be_empty
+    expect(guarded.revoke_all(user: user, session: current.session, grant: grant_for.call(:sign_out_everywhere))).to eq(1)
+    expect(revoked).to eq([[user.id, now]])
+  end
+
   it "does not let a grant for another purpose revoke sessions" do
     current = service.start(user: user, method: :password)
     other = service.start(user: user, method: :email_link)

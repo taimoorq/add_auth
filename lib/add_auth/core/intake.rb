@@ -14,19 +14,24 @@ module AddAuth
         @on_challenge_unavailable = on_challenge_unavailable
       end
 
+      # An exhausted IP budget stops before the identifier budget, and the
+      # identifier is charged only after any configured challenge passes, so
+      # other clients cannot spend a target's budget (plan section 18, A4).
       def call(identifier:, ip:, action:, challenge_token: nil)
         value = (identifier.is_a?(String) && identifier.valid_encoding? && identifier.bytesize.between?(1, 254)) ? @normalizer.call(identifier) : ""
         value = "" unless value.is_a?(String) && value.valid_encoding? && value.bytesize.between?(1, 254)
-        ip_ok = @limiter.call(key: @digest.digest("ip:#{ip}:#{action}"), limit: 30)
-        identifier_ok = @limiter.call(key: @digest.digest("identifier:#{value}:#{action}"), limit: 5)
-        return :rate_limited unless ip_ok && identifier_ok
+        return :rate_limited unless @limiter.call(key: @digest.digest("ip:#{ip}:#{action}"), limit: 30)
         return :invalid_credentials if value.to_s.empty?
         rejection = verify_challenge(ip: ip, action: action, challenge_token: challenge_token)
-        rejection || value
+        return rejection if rejection
+        return :rate_limited unless @limiter.call(key: @digest.digest("identifier:#{value}:#{action}"), limit: 5)
+        value
       end
 
-      def anonymous(ip:, action:, challenge_token: nil)
-        return :rate_limited unless @limiter.call(key: @digest.digest("ip:#{ip}:#{action}"), limit: 30)
+      # budget separates an IP counter from the challenge action, so a
+      # background request cannot spend the budget of an interactive form.
+      def anonymous(ip:, action:, challenge_token: nil, budget: action)
+        return :rate_limited unless @limiter.call(key: @digest.digest("ip:#{ip}:#{budget}"), limit: 30)
         verify_challenge(ip: ip, action: action, challenge_token: challenge_token) || true
       end
 

@@ -44,7 +44,9 @@ module AddAuth
           end
         end
 
-        def authentication_options(browser_secret:, user: nil, session: nil, purpose: nil)
+        # ip selects the anonymous ceremony budget; one network cannot exhaust
+        # passkey sign-in for every other client.
+        def authentication_options(browser_secret:, user: nil, session: nil, purpose: nil, ip: nil)
           return failure unless @binding.valid?(browser_secret)
           if user || session || purpose
             @store.with_user(id: user&.id) do |account|
@@ -54,7 +56,8 @@ module AddAuth
               create_options(options, kind: "assertion", user: account, session: session, purpose: purpose, browser_secret: browser_secret)
             end
           else
-            return failure(:rate_limited) unless @limiter.call(key: @digest.digest("passkey:anonymous-ceremonies"), limit: @anonymous_limit)
+            budget = "passkey:anonymous-ceremonies:#{RateLimit.network(ip)}"
+            return failure(:rate_limited) unless @limiter.call(key: @digest.digest(budget), limit: @anonymous_limit)
             options = @rp.options_for_authentication(user_verification: "required")
             create_options(options, kind: "assertion", browser_secret: browser_secret)
           end

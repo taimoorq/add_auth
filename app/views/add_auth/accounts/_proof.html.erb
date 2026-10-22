@@ -11,6 +11,13 @@
       <%= form.password_field :password, required: true, autocomplete: "new-password", class: add_auth_class(:input) %>
     </div>
   <% end %>
-  <%= form.submit title, class: add_auth_class(:button) %>
+  <% if @purpose == "confirm" && @providers.present? %>
+    <% providers = @providers.to_sentence %>
+    <p>This account was started by signing in with <%= providers %>. Keep <%= providers %> only if you used it to create this account.</p>
+    <%= form.button "Confirm and keep #{providers}", name: "providers", value: "keep", class: add_auth_class(:button) %>
+    <%= form.button "Confirm without #{providers}", name: "providers", value: "remove", class: add_auth_class(:button) %>
+  <% else %>
+    <%= form.submit title, class: add_auth_class(:button) %>
+  <% end %>
 <% end %>
 <p><%= link_to "Back to sign in", "/sign-in" %></p>

@@ -67,7 +67,7 @@ RSpec.describe "Google sign-in in an installed-package Rails host" do
         RUBY
       end
       output = host.runner("load #{File.expand_path("../support/google_provider_journey.rb", __dir__).inspect}", skip_executor: true)
-      expect(output).to include("9 examples, 0 failures")
+      expect(output).to include("12 examples, 0 failures")
     end
   end
 end

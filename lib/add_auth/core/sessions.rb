@@ -31,7 +31,8 @@ module AddAuth
       Page = Struct.new(:entries, :next_cursor)
 
       def initialize(store:, digest:, eligible:, lifetime: 43_200, idle_timeout: 1800,
-        legacy_bridge_until: nil, clock: Time, access_policy: nil, password_lifecycle: nil, remembered_profile: nil, mobile_profile: nil, on_sign_in: nil, verified_denial: nil)
+        legacy_bridge_until: nil, clock: Time, access_policy: nil, password_lifecycle: nil, remembered_profile: nil, mobile_profile: nil, on_sign_in: nil, verified_denial: nil,
+        revoke_authority: nil)
         unless [lifetime, idle_timeout].all? { |n| n.is_a?(Numeric) && n.finite? && n.positive? } && idle_timeout <= lifetime
           raise ArgumentError, "session timeouts must be positive and idle_timeout <= lifetime"
         end
@@ -45,6 +46,7 @@ module AddAuth
         @password_lifecycle = password_lifecycle
         @on_sign_in = on_sign_in
         @verified_denial = verified_denial
+        @revoke_authority = revoke_authority
         raise ArgumentError, "invalid mobile profile" unless mobile_profile.nil? || mobile_profile.is_a?(MobileProfile)
         @mobile = mobile_profile
         @lifetime, @idle, @deadline = lifetime, idle_timeout, legacy_bridge_until
@@ -98,6 +100,7 @@ module AddAuth
         return if transport == :mobile && replacing
         raise ArgumentError, "unsupported proof" unless %w[password email_link passkey external_identity].include?(method.to_s)
         return if @access_policy && !@access_policy.sign_in_allowed?(user, method)
+        return if method.to_s == "password" && @password_lifecycle&.locked?(user)
         if method.to_s == "passkey"
           return unless proof.is_a?(StepUp::Evidence) && proof.strong? && proof.user_id == user.id &&
             proof.verified_at <= @clock.now && proof.verified_at > @clock.now - 300
@@ -255,9 +258,13 @@ module AddAuth
         end || Result.failure(reason: :elevation_required)
       end
 
+      # Sign-out-everywhere retires every outstanding proof, not only sessions:
+      # the shared authority port also revokes tokens, ceremonies and handoffs.
       def revoke_all(user:, session:, grant:)
         with_authority(user: user, session: session, grant: grant, purpose: :sign_out_everywhere) do |account, _row, now|
-          @store.revoke_all_in_transaction(user_id: account.id, at: now)
+          count = @store.revoke_all_in_transaction(user_id: account.id, at: now)
+          @revoke_authority&.call(user_id: account.id, at: now)
+          count
         end || false
       end
 

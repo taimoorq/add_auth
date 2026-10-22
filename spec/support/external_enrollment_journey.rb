@@ -28,7 +28,8 @@ service = build_service.call
 accounts = AddAuth::Core::AccountLifecycle.new(store: accounts_store, policy: policy, digest: digest,
   delivery_cipher: AddAuth::Rails::DeliveryCipher.new(key: Rails.application.key_generator.generate_key("enrollment-proof-test", 32)),
   password_policy: ->(password) { password.length >= 12 }, trusted_address: ->(user) { user.email_address if user.confirmed_at },
-  profile_attributes: ->(profile) { profile.slice(:name, :accepted_terms) }, external_identities: -> { service }, clock: clock)
+  profile_attributes: ->(profile) { profile.slice(:name, :accepted_terms) }, external_identities: -> { service }, clock: clock,
+  external_bindings: AddAuth::Core::ExternalIdentities::Bindings.new(store: store))
 browser = AddAuth::Core::BrowserBinding.new(digest: digest).generate
 profile = {name: "Fixture Person", accepted_terms: true}
 issue = ->(subject, purpose = :enroll_external_identity) {
@@ -175,4 +176,34 @@ results = race.call(-> { register.call("namespace-a@example.test", first) }, -> 
 raise "namespace race had multiple owners" unless results.count(&:success?) == 1
 raise "namespace race orphaned account or proof: before=#{before.inspect} after=#{counts.call.inspect}" unless counts.call == before.zip([1, 1, 1, 1, 0]).map { |a, b| a + b }
 raise "enrollment minted browser authority" unless Session.count == 0
+
+# Pre-account takeover: an attacker enrolls the victim's address with their own
+# provider subject. The victim's confirmation must not adopt that binding.
+confirm = ->(email, **choice) {
+  owner = User.find_by!(email_address: email)
+  proof = AddAuthAccountToken.where(user_id: owner.id, purpose: "confirm").order(:created_at).last
+  delivery = accounts.claim_delivery(digest: proof.digest)
+  raise "confirmation mail did not name the bound provider" unless delivery && delivery.fetch(:providers) == [configuration.id]
+  raise "confirmation page did not name the bound provider" unless accounts.preview(token: delivery.fetch(:token), purpose: :confirm).credential == [configuration.id]
+  raise "confirmation failed" unless accounts.consume(token: delivery.fetch(:token), purpose: :confirm, **choice).success?
+  owner.reload
+}
+_pending, hijack = issue.call("attacker-subject")
+raise "attacker enrollment failed" unless register.call("victim@example.test", hijack).success?
+victim = confirm.call("victim@example.test")
+binding = AddAuthExternalIdentity.find_by!(subject: "attacker-subject")
+raise "victim confirmation adopted the attacker's binding" unless binding.revoked_at && victim.confirmed_at
+_pending, attacker_sign_in = issue.call("attacker-subject", :sign_in)
+raise "attacker kept provider sign-in after confirmation" unless service.sign_in(evidence: attacker_sign_in).reason == :identity_unbound
+_pending, reenroll = issue.call("attacker-subject")
+before = counts.call
+raise "revoked subject re-enrolled another account" if register.call("second-victim@example.test", reenroll).success?
+assert_unchanged.call(before)
+
+# The legitimate enrolling user keeps their provider only by choosing to.
+_pending, owner_proof = issue.call("owner-subject")
+raise "owner enrollment failed" unless register.call("owner@example.test", owner_proof).success?
+owner = confirm.call("owner@example.test", keep_providers: true)
+kept = AddAuthExternalIdentity.find_by!(subject: "owner-subject")
+raise "explicit keep revoked the owner's binding" if kept.revoked_at || !owner.confirmed_at
 puts "external enrollment and rollback verified"

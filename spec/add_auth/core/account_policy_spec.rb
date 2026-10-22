@@ -34,12 +34,22 @@ RSpec.describe AddAuth::Core::AccountPolicy do
   it "distinguishes timed expiry from manual suspension and strict recovery" do
     user.locked_at = now - 600
     user.add_auth_locked_until = now + 1
-    expect(policy.allowed?(user)).to be(false)
+    # An automatic lock gates the password method only, not the account.
+    expect(policy.allowed?(user)).to be(true)
+    expect(policy.denial(user)).to be_nil
+    expect(policy.password_denial(user)).to eq(:locked)
+    expect(policy).to be_locked(user)
     expect(policy.allowed?(user, purpose: :unlock)).to be(true)
     user.add_auth_locked_until = now
     expect(policy.allowed?(user)).to be(true)
+    expect(policy.password_denial(user)).to be_nil
+    user.add_auth_locked_until = nil
+    expect(policy.allowed?(user)).to be(false)
+    expect(policy.denial(user)).to eq(:locked)
+    user.add_auth_locked_until = now + 1
     user.add_auth_manual_lock = true
     expect(policy.allowed?(user)).to be(false)
+    expect(policy.denial(user)).to eq(:locked)
     expect(policy.allowed?(user, purpose: :unlock)).to be(false)
     user.add_auth_strict = true
     expect(policy.allowed?(user, purpose: :reset_password)).to be(false)

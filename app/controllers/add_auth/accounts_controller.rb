@@ -52,6 +52,7 @@ module AddAuth
     def proof
       @purpose = purpose
       result = Rails::Runtime.accounts.preview(token: params[:token], purpose: @purpose)
+      @providers = Rails::Runtime.provider_labels(result.credential) if result.success?
       page(result.success? ? "proof" : "invalid_proof")
     end
 
@@ -59,11 +60,14 @@ module AddAuth
       @purpose = purpose
       admitted = Rails::Runtime.intake.anonymous(ip: request.remote_ip, action: :account_consume)
       return intake_failure(admitted) if admitted.is_a?(Symbol)
-      result = Rails::Runtime.accounts.consume(token: params[:token], purpose: @purpose, password: params[:password])
+      result = Rails::Runtime.accounts.consume(token: params[:token], purpose: @purpose, password: params[:password],
+        keep_providers: params[:providers] == "keep")
       if result.success?
         redirect_to "/sign-in", status: :see_other, notice: "Your account has been updated. Sign in to start a new session."
       else
         @error = "This request could not be completed. Check the password requirements or request a new link."
+        preview = Rails::Runtime.accounts.preview(token: params[:token], purpose: @purpose)
+        @providers = Rails::Runtime.provider_labels(preview.credential) if preview.success?
         page("proof", status: :unprocessable_entity)
       end
     end

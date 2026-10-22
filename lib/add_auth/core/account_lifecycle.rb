@@ -35,7 +35,8 @@ module AddAuth
       end
 
       def initialize(store:, digest:, delivery_cipher:, policy:, password_policy:, trusted_address:, clock: Time, random: SecureRandom,
-        lifetime: 3600, notify: ->(**) {}, sessions: nil, step_up_policy: nil, profile_attributes: ->(_profile) { {} }, deletion_allowed: ->(_user) { true }, external_identities: nil)
+        lifetime: 3600, notify: ->(**) {}, sessions: nil, step_up_policy: nil, profile_attributes: ->(_profile) { {} }, deletion_allowed: ->(_user) { true }, external_identities: nil,
+        external_bindings: nil)
         raise ArgumentError, "proof lifetime must be between 60 and 86400 seconds" unless lifetime.is_a?(Numeric) && lifetime.between?(60, 86_400)
         @store, @digest, @cipher, @policy, @password_policy, @trusted_address = store, digest, delivery_cipher, policy, password_policy, trusted_address
         @clock, @random, @lifetime, @notify = clock, random, lifetime, notify
@@ -43,6 +44,7 @@ module AddAuth
         @profile_attributes = profile_attributes
         @deletion_allowed = deletion_allowed
         @external_identities = external_identities
+        @external_bindings = external_bindings
       end
 
       def register(identifier:, password:, profile: {}, replacing: nil, user_agent: nil, ip_address: nil, remember: false)
@@ -86,14 +88,21 @@ module AddAuth
         accepted
       end
 
+      # A confirm preview's credential lists the provider configurations whose
+      # bindings the address owner must explicitly keep (see #consume).
       def preview(token:, purpose:)
         return failure unless token.is_a?(String) && TOKEN.match?(token) && PURPOSES.include?(purpose.to_s)
         user, record = @store.inspect_token(digest: @digest.digest(token))
         reason = rejection(user, record, purpose: purpose.to_s)
-        reason ? Result.failure(reason: reason) : Result.success(user: user, strategy: purpose.to_sym)
+        return Result.failure(reason: reason) if reason
+        Result.success(user: user, strategy: purpose.to_sym, credential: (unadopted_providers(user) if purpose.to_s == "confirm"))
       end
 
-      def consume(token:, purpose:, password: nil)
+      # A first confirmation is the address owner's adoption decision for any
+      # provider binding made before the address was proved. Only an explicit
+      # keep_providers: true preserves those bindings; any other confirmation
+      # revokes them in the same transaction (canonical plan section 18, A1).
+      def consume(token:, purpose:, password: nil, keep_providers: false)
         return failure unless token.is_a?(String) && TOKEN.match?(token) && PURPOSES.include?(purpose.to_s)
         @store.with_token(digest: @digest.digest(token)) do |user, record|
           reason = rejection(user, record, purpose: purpose.to_s)
@@ -110,12 +119,14 @@ module AddAuth
               @notify.call(user: user, kind: :email_changed, at: now, recipient: old_address)
               @notify.call(user: user, kind: :email_changed, at: now, recipient: pending)
             else
+              @external_bindings.revoke_all_in_transaction(user_id: user.id, at: now) if keep_providers != true && unadopted_providers(user).any?
               @store.update_account(user: user, confirmed_at: now)
               provision_account(user)
             end
           when "reset_password"
             next failure unless valid_new_password?(password)
             @store.replace_password(user: user, password: password)
+            clear_password_lock(user)
             @store.revoke_authority(user: user, at: now)
             @notify.call(user: user, kind: :password_changed, at: now)
           when "unlock"
@@ -214,6 +225,18 @@ module AddAuth
         failure
       end
 
+      # A proved reset ends brute-force lockout, never a manual lock.
+      def clear_password_lock(user)
+        attempts = user.respond_to?(:failed_attempts) ? user.failed_attempts.to_i : 0
+        return if user.add_auth_manual_lock || (!user.locked_at && attempts.zero?)
+        @store.update_account(user: user, locked_at: nil, add_auth_locked_until: nil, failed_attempts: 0)
+      end
+
+      def unadopted_providers(user)
+        return [].freeze unless @external_bindings && user && !user.confirmed_at
+        @external_bindings.provider_ids(user_id: user.id)
+      end
+
       def provision_account(user)
         tracked = user.respond_to?(:add_auth_provisioned_at)
         return if tracked && user.add_auth_provisioned_at
@@ -286,7 +309,8 @@ module AddAuth
         payload = JSON.parse(raw)
         return unless payload["purpose"] == record.purpose && payload["recipient"] == recipient_for(user, record.purpose) &&
           payload["token"].is_a?(String) && @digest.matches?(record.digest, payload["token"])
-        {recipient: payload.fetch("recipient"), token: payload.fetch("token"), purpose: record.purpose}
+        {recipient: payload.fetch("recipient"), token: payload.fetch("token"), purpose: record.purpose,
+         providers: (record.purpose == "confirm") ? unadopted_providers(user) : []}
       rescue JSON::ParserError, KeyError
         nil
       end

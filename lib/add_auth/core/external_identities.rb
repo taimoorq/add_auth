@@ -185,6 +185,21 @@ module AddAuth
         self.class.invalidate_credentials_in_transaction(store: @store, user_id: user_id, at: at)
       end
 
+      # Bindings persist while provider sign-in is disabled, so G3 reaches them
+      # through this narrow port rather than the enabled service. G3 owns the
+      # adoption decision; this only reports and revokes live bindings.
+      class Bindings
+        def initialize(store:)
+          @store = store
+        end
+
+        def provider_ids(user_id:) = @store.bindings(user_id: user_id).map(&:provider_id).uniq.sort.freeze
+
+        def revoke_all_in_transaction(user_id:, at:)
+          @store.bindings(user_id: user_id).each { |identity| @store.revoke(identity: identity, at: at) }.size
+        end
+      end
+
       def credential_current?(user:, id:, version:)
         return false unless @enabled
         identity = @store.binding_for_user(user_id: user.id, id: id)

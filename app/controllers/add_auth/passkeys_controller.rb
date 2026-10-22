@@ -30,9 +30,11 @@ module AddAuth
       finish(result, destination: "/passkeys", grant: result.grant)
     end
 
+    # Conditional UI requests options on page load. Keep that off the
+    # password sign_in budget while still applying the sign_in challenge.
     def authentication_options
-      return unless admitted(:sign_in)
-      options(service.authentication_options(browser_secret: browser_secret))
+      return unless admitted(:sign_in, budget: :passkey_options)
+      options(service.authentication_options(browser_secret: browser_secret, ip: request.remote_ip))
     end
 
     def authenticate
@@ -92,8 +94,8 @@ module AddAuth
       value.to_unsafe_h if value.is_a?(ActionController::Parameters)
     end
 
-    def admitted(action)
-      result = Rails::Runtime.intake.anonymous(ip: request.remote_ip, action: action, challenge_token: challenge_token)
+    def admitted(action, budget: action)
+      result = Rails::Runtime.intake.anonymous(ip: request.remote_ip, action: action, challenge_token: challenge_token, budget: budget)
       return true if result == true
       render json: {error: "Verification could not start. Try again shortly."}, status: if result == :rate_limited
                                                                                           429

@@ -90,7 +90,26 @@ module AddAuth
           policy: account_policy, password_policy: config.lifecycle.password_policy, trusted_address: method(:trusted_recovery_address),
           lifetime: config.lifecycle.proof_lifetime, notify: ->(**event) { security_events.issue(**event) if config.notifications.enabled },
           sessions: sessions, step_up_policy: step_up_policy, profile_attributes: config.lifecycle.profile_attributes, deletion_allowed: config.lifecycle.deletion_allowed,
-          external_identities: -> { external_identities })
+          external_identities: -> { external_identities }, external_bindings: external_bindings)
+      end
+
+      # Present whenever the binding table exists, even with providers disabled:
+      # a first confirmation must still decide what happens to old bindings.
+      def external_bindings
+        return unless defined?(::AddAuthExternalIdentity) && ::AddAuthExternalIdentity.table_exists?
+        Core::ExternalIdentities::Bindings.new(store: external_identity_store)
+      end
+
+      # Display-only labels for provider configuration IDs held by Core. A
+      # native configuration borrows the label of a browser provider with the
+      # same issuer.
+      def provider_labels(ids)
+        options = config.external_identities
+        Array(ids).map { |id|
+          native = options.native_provider(id)
+          provider = options.provider(id) || (native && options.providers.find { |item| item.configuration.issuer == native.issuer })
+          provider&.label || "your sign-in provider"
+        }.uniq
       end
 
       def enqueue_account_request(identifier:, purpose:)
@@ -112,9 +131,9 @@ module AddAuth
           idle_timeout: config.session.idle_timeout, legacy_bridge_until: config.session.legacy_bridge_until, access_policy: access_policy,
           password_lifecycle: password_lifecycle,
           mobile_profile: mobile_profile,
-          verified_denial: ->(user) { (config.eligible.call(user) == true) ? account_policy.denial(user) : :disabled },
+          verified_denial: ->(user) { (config.eligible.call(user) == true) ? account_policy.password_denial(user) : :disabled },
           remembered_profile: config.lifecycle.enabled ? {lifetime: config.lifecycle.remember_lifetime, idle_timeout: config.lifecycle.remember_idle_timeout} : nil,
-          on_sign_in: method(:record_sign_in))
+          on_sign_in: method(:record_sign_in), revoke_authority: authority.method(:revoke))
       end
 
       def mobile_profile
@@ -163,7 +182,8 @@ module AddAuth
         Core::Passwords::Lifecycle.new(store: Stores::AccountCredentials.new(user_model: ::User, authority: authority),
           policy: method(:eligible), enabled: config.lifecycle.enabled,
           maximum_attempts: config.lifecycle.maximum_attempts, unlock_in: config.lifecycle.unlock_in,
-          issue_unlock: ->(user) { accounts.issue_unlock_in_transaction(user: user) })
+          issue_unlock: ->(user) { accounts.issue_unlock_in_transaction(user: user) },
+          password_allowed: ->(user) { access_policy.sign_in_allowed?(user, :password) })
       end
 
       def security_events

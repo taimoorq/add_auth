@@ -202,6 +202,47 @@ RSpec.describe "Account lifecycle in the adopted Rails host" do
         token = runtime.accounts.claim_delivery(digest: proof.digest).fetch(:token)
         abort "unlock failed" unless runtime.accounts.consume(token: token, purpose: :unlock).success?
         abort "unlock state wrong" unless user.reload.locked_at.nil? && user.failed_attempts == 0
+
+        # A stranger's guesses lock only the password method: existing sessions
+        # and the account survive, and a proved reset ends the lock.
+        current_password = %w[raced-password-0 raced-password-1].find { |candidate| user.authenticate(candidate) }
+        survivor = runtime.sessions.start(user: user, method: :password)
+        abort "pre-lock session missing" unless survivor
+        3.times do
+          runtime.sessions.authenticate(identifier: user.email_address, password: "wrong") do
+            runtime.authenticate_password(identifier: user.email_address, password: "wrong")
+          end
+        end
+        abort "automatic lock missing" unless user.reload.locked_at && user.add_auth_locked_until
+        abort "automatic lock revoked existing sessions" unless runtime.sessions.resume(signed_value: survivor.bearer)
+        abort "automatic lock denied the whole account" unless runtime.account_policy.allowed?(user)
+        abort "locked password started a session" if runtime.sessions.start(user: user, method: :password)
+        locked_attempt = runtime.sessions.authenticate(identifier: user.email_address, password: current_password) do
+          runtime.authenticate_password(identifier: user.email_address, password: current_password)
+        end
+        abort "correct password bypassed the automatic lock" if locked_attempt
+        runtime.accounts.issue(identifier: user.email_address, purpose: :reset_password)
+        proof = AddAuthAccountToken.where(user_id: user.id, purpose: "reset_password").order(:created_at).last
+        token = runtime.accounts.claim_delivery(digest: proof.digest).fetch(:token)
+        abort "reset during lock failed" unless runtime.accounts.consume(token: token, purpose: :reset_password, password: "post-lock-password").success?
+        abort "reset did not clear the automatic lock" unless user.reload.locked_at.nil? && user.add_auth_locked_until.nil? && user.failed_attempts == 0
+        relogin = runtime.sessions.authenticate(identifier: user.email_address, password: "post-lock-password") do
+          runtime.authenticate_password(identifier: user.email_address, password: "post-lock-password")
+        end
+        abort "password sign-in after reset failed" unless relogin
+
+        # Sign-out-everywhere retires a pending address-change proof as well.
+        elevation = runtime.elevate_password(user: user, session: relogin.session, purpose: :change_email,
+          password: "post-lock-password", ip: "127.0.0.1", challenge_token: nil)
+        abort "change-email elevation failed" unless elevation.success?
+        abort "change email failed" unless runtime.accounts.change_email(user: user, session: elevation.session, identifier: "pending-move@example.test").success?
+        pending_change = AddAuthAccountToken.where(user_id: user.id, purpose: "confirm").order(:created_at).last
+        change_token = runtime.accounts.claim_delivery(digest: pending_change.digest).fetch(:token)
+        signed_out = runtime.revoke_all(user: user, session: elevation.session, password: "post-lock-password", ip: "127.0.0.1", challenge_token: nil)
+        abort "sign out everywhere failed" unless signed_out.success?
+        abort "pending address change survived sign out everywhere" unless pending_change.reload.revoked_at
+        abort "revoked address change still confirms" if runtime.accounts.consume(token: change_token, purpose: :confirm).success?
+        abort "address moved after sign out everywhere" unless user.reload.email_address == "raced@example.test"
         puts "registration/proof/reset/password-lock races verified"
       RUBY
       expect(concurrency_output).to include("registration/proof/reset/password-lock races verified")

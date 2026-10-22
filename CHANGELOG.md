@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+Security hardening from an adversarial review. Refresh ejected account and
+passkey controllers/views through the normal review process.
+
+- A first email confirmation no longer silently adopts a provider binding made
+  before the address was proved. The confirmation email and page name the
+  provider; only an explicit "Confirm and keep" preserves it, and any other
+  confirmation revokes it. This closes pre-registration of someone else's
+  address with an attacker's provider account.
+- Automatic password lockout gates only password sign-in. It no longer revokes
+  existing sessions or blocks passkey, email-link or provider sign-in, never
+  counts failures for accounts that cannot use a password, and is cleared by a
+  successful password reset. Manual locks are unchanged.
+- Sign out everywhere also revokes outstanding email proofs, account proofs
+  (such as a pending address change), passkey/provider ceremonies and mobile
+  handoffs.
+- Rate limits check the IP budget first and charge the identifier budget only
+  after a configured challenge passes. Passkey sign-in option requests use their
+  own IP budget, and `passkeys.anonymous_limit` now applies per IPv4 address or
+  IPv6 /64 rather than globally.
+
 ## 0.5.0 — 2026-09-18
 
 - Honor Rails' `primary_key_type` generator setting for all AddAuth-owned tables.

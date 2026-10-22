@@ -91,7 +91,12 @@ RSpec.describe "Optional mobile session JSON transport", type: :request, databas
     expect(response).to have_http_status(:service_unavailable)
     expect(response.headers["Retry-After"]).to eq("300")
     config.challenge_on = []
-    4.times { login(password: "wrong-password") }
+    # Rejected and unavailable challenges did not spend the identifier budget.
+    5.times do
+      login(password: "wrong-password")
+      expect(response).to have_http_status(:unauthorized)
+    end
+    login(password: "wrong-password")
     expect(response).to have_http_status(:too_many_requests)
     expect(Session.count).to eq(0)
   end

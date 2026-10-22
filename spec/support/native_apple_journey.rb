@@ -62,10 +62,10 @@ RSpec.describe "Native Apple package journeys", browser: true do
       link = URI(message.body.decoded.scan(%r{https://[^[:space:]<>]+}).first)
       @browser = Capybara::Session.new((mode == :no_js) ? :add_auth_no_js : :add_auth_chrome, Rails.application)
       @browser.visit link.request_uri
-      expect(@browser).to have_button("Confirm this email address")
+      expect(@browser).to have_css("button[name=providers][value=keep]")
       expect(@browser.evaluate_script("typeof window.Turbo")).to eq("undefined") if mode == :html
       expect(account.reload.confirmed_at).to be_nil
-      @browser.click_button "Confirm this email address"
+      @browser.find("button[name=providers][value=keep]").click
       expect(@browser).to have_css("h1", text: "Sign in")
       expect(account.reload.confirmed_at).to be_present
       expect(Session.count).to eq(sessions_before)

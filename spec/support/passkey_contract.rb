@@ -52,10 +52,18 @@ RSpec.shared_examples "passkey store contract" do
     expect(store.credentials(user: user)).to be_empty
   end
 
-  it "denies anonymous creation before persistence when its shared budget is exhausted" do
-    expect(limiter).to receive(:call).with(key: digest.digest("passkey:anonymous-ceremonies"), limit: 1000).and_return(false)
+  it "denies anonymous creation before persistence when its network budget is exhausted" do
+    expect(limiter).to receive(:call).with(key: digest.digest("passkey:anonymous-ceremonies:192.0.2.7"), limit: 1000).and_return(false)
     expect(store).not_to receive(:create_ceremony)
-    expect(service.authentication_options(browser_secret: secret).reason).to eq(:rate_limited)
+    expect(service.authentication_options(browser_secret: secret, ip: "192.0.2.7").reason).to eq(:rate_limited)
+  end
+
+  it "keeps one network's exhausted ceremony budget from denying another network" do
+    exhausted = digest.digest("passkey:anonymous-ceremonies:2001:db8:1:2::/64")
+    allow(limiter).to receive(:call) { |key:, limit:| key != exhausted }
+    expect(service.authentication_options(browser_secret: secret, ip: "2001:db8:1:2::99").reason).to eq(:rate_limited)
+    expect(service.authentication_options(browser_secret: secret, ip: "2001:db8:1:3::1")).to be_success
+    expect(service.authentication_options(browser_secret: secret, ip: "192.0.2.8")).to be_success
   end
 
   it "allows only the originating browser to cancel its ceremony" do

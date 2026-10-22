@@ -41,11 +41,25 @@ module AddAuth
         return :disabled unless available?(user)
         return unless @enabled
         return :unconfirmed if !value(user, :confirmed_at) && (confirmation_required? || !password_account?(user))
-        :locked if locked?(user)
+        :locked if account_locked?(user)
       end
 
+      # Password results may also disclose an automatic lock to the holder of
+      # the correct password; other methods never consult this.
+      def password_denial(user) = denial(user) || ((@enabled && locked?(user)) ? :locked : nil)
+
+      # Any active lock, including the automatic password lock.
       def locked?(user)
         value(user, :locked_at) && (value(user, :add_auth_manual_lock) || !value(user, :add_auth_locked_until) || value(user, :add_auth_locked_until) > @clock.now)
+      end
+
+      # Manual and imported (untimed) locks deny the whole account. An automatic
+      # brute-force lock gates only the password method (plan section 18, A2).
+      def account_locked?(user) = locked?(user) && !self.class.automatic_lock?(user, now: @clock.now)
+
+      def self.automatic_lock?(user, now:)
+        read = ->(name) { user.public_send(name) if user.respond_to?(name) }
+        !!(read.call(:locked_at) && !read.call(:add_auth_manual_lock) && read.call(:add_auth_locked_until) && read.call(:add_auth_locked_until) > now)
       end
 
       private

@@ -168,6 +168,34 @@ RSpec.describe "Actual Google provider journeys", browser: true do
       expect(user.password_digest).to be_nil
     end
 
+    it "does not let a pre-registered Google binding survive the address owner's confirmation with #{mode}" do
+      @subject = "attacker-#{mode}"
+      email = "victim-#{mode}@example.test"
+      browser_for(mode)
+      @browser.visit "/account/sign-up/providers/google_oauth2"
+      @browser.fill_in "Email address", with: email
+      @browser.click_button "Continue with Google"
+      finish_google
+      expect(@browser).to have_css("h1", text: "Check your email")
+      victim = User.find_by!(email_address: email)
+      message = ActionMailer::Base.deliveries.reverse.find { |mail| mail.to == [email] }
+      expect(message.body.decoded).to include("Confirm without Google")
+      @browser.quit
+      # The mailbox owner opens the link in their own browser.
+      browser_for(mode)
+      @browser.visit URI.parse(message.body.decoded.scan(%r{https://[^[:space:]<>]+}).first).request_uri
+      expect(@browser).to have_button("Confirm and keep Google")
+      @browser.click_button "Confirm without Google"
+      expect(@browser).to have_css("h1", text: "Sign in")
+      expect(victim.reload.confirmed_at).to be_present
+      expect(AddAuthExternalIdentity.find_by!(user_id: victim.id).revoked_at).to be_present
+      # The attacker's provider account no longer signs in to the victim's account.
+      @browser.click_button "Continue with Google"
+      finish_google
+      expect(@browser).to have_text("We could not verify this provider sign-in")
+      expect(Session.where(user_id: victim.id)).to be_empty
+    end
+
     it "enrolls, confirms, recovers, links/unlinks and deletes with #{mode}" do
       @subject = "new-#{mode}"
       email = "#{@subject}@example.test"
@@ -187,9 +215,12 @@ RSpec.describe "Actual Google provider journeys", browser: true do
       expect(proof.consumed_at).to be_present
       message = ActionMailer::Base.deliveries.reverse.find { |mail| mail.to == [email] }
       expect(message.subject).to eq("Confirm your email address")
+      expect(message.body.decoded).to include("started by signing in with Google")
       @browser.visit URI.parse(message.body.decoded.scan(%r{https://[^[:space:]<>]+}).first).request_uri
-      @browser.click_button "Confirm this email address"
+      expect(@browser).to have_text("This account was started by signing in with Google")
+      @browser.click_button "Confirm and keep Google"
       expect(@browser).to have_css("h1", text: "Sign in")
+      expect(AddAuthExternalIdentity.find_by!(user_id: user.id).revoked_at).to be_nil
       expect(Session.where(user_id: user.id)).to be_empty
       @browser.click_button "Continue with Google"
       finish_google

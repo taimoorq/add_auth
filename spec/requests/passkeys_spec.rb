@@ -118,14 +118,26 @@ RSpec.describe "Anonymous passkey availability", type: :request, database: true 
     expect(Session.count).to eq(0)
   end
 
-  it "caps creation across different IP addresses and allows existing ceremonies to be cancelled" do
+  it "keeps conditional-UI option requests off the password sign-in budget" do
+    user = User.create!(email_address: "budget@example.test", password: "correct-password")
+    30.times do
+      post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => "198.51.100.20"}, as: :json
+      expect(response).to have_http_status(200)
+    end
+    post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => "198.51.100.20"}, as: :json
+    expect(response).to have_http_status(429)
+    post "/sign-in/password", params: {email_address: user.email_address, password: "correct-password"}, headers: {"REMOTE_ADDR" => "198.51.100.20"}
+    expect(response).to have_http_status(:see_other)
+  end
+
+  it "caps creation per network without denying other networks and allows existing ceremonies to be cancelled" do
     AddAuth.configuration.passkeys.anonymous_limit = 2
-    starts = 3.times.map do |attempt|
-      post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => "192.0.2.#{attempt + 1}"}, as: :json
+    starts = %w[2001:db8:5::1 2001:db8:5::2 2001:db8:5::3 192.0.2.4].map do |address|
+      post "/passkeys/sign-in/options", headers: {"REMOTE_ADDR" => address}, as: :json
       [response.status, response.parsed_body]
     end
-    expect(starts.map(&:first)).to eq([200, 200, 429])
-    expect(AddAuthCeremony.count).to eq(2)
+    expect(starts.map(&:first)).to eq([200, 200, 429, 200])
+    expect(AddAuthCeremony.count).to eq(3)
     expect(Session.count).to eq(0)
     post "/passkeys/cancel", params: {transaction: starts.first.last.fetch("transaction")}, as: :json
     expect(response).to have_http_status(204)

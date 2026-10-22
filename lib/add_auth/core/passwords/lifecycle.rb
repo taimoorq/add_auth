@@ -1,18 +1,29 @@
 # frozen_string_literal: true
 
+require "add_auth/core/account_policy"
+
 module AddAuth
   module Core
     module Passwords
       # Called only inside the owning account transaction. The adapter supplies
       # Rails hashing and persistence; these decisions are shared by entry paths.
       class Lifecycle
-        def initialize(store:, policy:, enabled:, maximum_attempts: 20, unlock_in: 3600, clock: Time, issue_unlock: ->(_user) {})
+        # password_allowed reports whether this account may use password sign-in
+        # at all (feature enabled, stored password, not strict). Accounts that
+        # cannot use a password never accumulate failures or locks.
+        def initialize(store:, policy:, enabled:, maximum_attempts: 20, unlock_in: 3600, clock: Time, issue_unlock: ->(_user) {},
+          password_allowed: ->(_user) { true })
           unless maximum_attempts.is_a?(Integer) && maximum_attempts.between?(1, 100) &&
               unlock_in.is_a?(Numeric) && unlock_in.finite? && unlock_in.between?(60, 86_400)
             raise ArgumentError, "configure bounded password attempts and unlock duration"
           end
           @store, @policy, @enabled, @maximum, @unlock_in, @clock, @issue_unlock = store, policy, enabled, maximum_attempts, unlock_in, clock, issue_unlock
+          @password_allowed = password_allowed
         end
+
+        # The automatic lock gates the password method only; it never denies
+        # other methods or revokes existing authority.
+        def locked?(user) = @enabled && !!user && AccountPolicy.automatic_lock?(user, now: @clock.now)
 
         def prepare(user:)
           return unless @enabled && user && !user.add_auth_manual_lock && user.locked_at &&
@@ -21,7 +32,8 @@ module AddAuth
         end
 
         def verified(user:, password:, valid:, rehash: true)
-          return false unless user && @policy.call(user) == true
+          return false unless user && @policy.call(user) == true && @password_allowed.call(user) == true
+          return false if locked?(user)
           if valid
             @store.update_account(user: user, failed_attempts: 0) if @enabled && user.failed_attempts != 0
             if rehash && user.respond_to?(:add_auth_password_scheme) && user.add_auth_password_scheme == "devise_bcrypt" && assignable?(password)
@@ -49,10 +61,7 @@ module AddAuth
             changes[:add_auth_locked_until] = @clock.now + @unlock_in
           end
           @store.update_account(user: user, **changes)
-          if attempts >= @maximum
-            @store.revoke_authority(user: user, at: @clock.now)
-            @issue_unlock.call(user)
-          end
+          @issue_unlock.call(user) if attempts >= @maximum
         end
       end
     end

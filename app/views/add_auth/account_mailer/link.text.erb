@@ -2,6 +2,10 @@
 
 Open this link, then use the button on the page to confirm your request:
 <%= @url %>
+<% if @providers.present? %>
+
+This account was started by signing in with <%= @providers.to_sentence %>. Keep <%= @providers.to_sentence %> only if you used it to create this account. If you did not, choose "Confirm without <%= @providers.to_sentence %>".
+<% end %>
 
 This link expires in <%= AddAuth.configuration.lifecycle.proof_lifetime.to_i / 60 %> minutes and can be used once.
 If you did not request this message, you can ignore it.

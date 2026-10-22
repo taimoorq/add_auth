@@ -79,7 +79,7 @@ AddAuth.configure do |config|
   config.passkeys.origins = [] # Required: exact trusted origins, never request Host.
   # config.passkeys.origins = ["https://app.example.com"]
   config.passkeys.name = "Your account"
-  config.passkeys.anonymous_limit = 1000 # Shared ceremony budget per five minutes.
+  config.passkeys.anonymous_limit = 1000 # Ceremony budget per IPv4 address or IPv6 /64 per five minutes.
   config.trusted_recovery_address = ->(_user) {} # No trusted recovery by default.
   # config.trusted_recovery_address = ->(user) { user.email_address if user.confirmed_at }
   # Lifecycle additionally rejects unconfirmed addresses as trusted recovery.

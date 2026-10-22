@@ -270,7 +270,8 @@ RSpec.describe "Installed optional-confirmation lifecycle" do
   end
 
   it "keeps lockout and trusted-only unlock behavior effective for optional accounts" do
-    account = register.user
+    registered = register
+    account = registered.user
     config.lifecycle.maximum_attempts = 2
     2.times do
       runtime.sessions.authenticate(identifier: email, password: "wrong") { runtime.authenticate_password(identifier: email, password: "wrong") }
@@ -279,7 +280,9 @@ RSpec.describe "Installed optional-confirmation lifecycle" do
     expect(account.locked_at).to be_present
     expect(runtime.sessions.start(user: account, method: :password)).to be_nil
     expect(AddAuthAccountToken.where(user_id: account.id, purpose: "unlock")).to be_empty
-    expect(Session.where(user_id: account.id, revoked_at: nil)).to be_empty
+    # The automatic lock gates the password method only; it does not evict the owner.
+    expect(registered.session.reload.revoked_at).to be_nil
+    expect(runtime.sessions.resume(signed_value: registered.grant.bearer)).to be_present
   end
 
   it "keeps address changes proof-bound and revokes authority after the new address is confirmed" do

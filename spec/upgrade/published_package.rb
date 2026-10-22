@@ -15,7 +15,8 @@ RSpec.describe "Upgrade from the published AddAuth package" do
       "7c3dc3d95e85d74887d1a607f47d85d702e52e5b6771aac9fa8002f046581725" => "0.2.1",
       "c66189b571c2acc47ef9574c045359956a97bf734692f28d29749aef8b2c8673" => "0.2.2",
       "41944086bd4414e16a0db3da95caf6e5e1e09eb92369f4572d6309ee92e6c9a0" => "0.3.0",
-      "ae42155d2fda96a44af691ec32ed3d4a6ccb7ae3ecfb246ebc8cd3e14e0ad008" => "0.4.0"
+      "ae42155d2fda96a44af691ec32ed3d4a6ccb7ae3ecfb246ebc8cd3e14e0ad008" => "0.4.0",
+      "4dd3531b92c6d661f6521b4bbb45b2b3f79f8d784969a1434d7ff6205a098bb4" => "0.5.0"
     }
     checksum = Digest::SHA256.file(baseline).hexdigest
     expect(published).to have_key(checksum)

@@ -29,15 +29,15 @@ for verification in a disposable host.
 
 ## Quickstart
 
-These commands target 0.5.0 and are available after its
-[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.5.0).
+These commands target 0.5.1 and are available after its
+[RubyGems publication](https://rubygems.org/gems/add_auth/versions/0.5.1).
 Check package availability before changing your app’s bundle.
 
 Install the `add_auth` gem from RubyGems through your Rails app’s Gemfile,
 then enable password and email-link sign-in. Use Ruby 3.3+ and Rails 8.0+
 with Active Record, and run the commands below from your Rails app’s root.
 
-**Release availability:** these commands require the published `0.5.0` package.
+**Release availability:** these commands require the published `0.5.1` package.
 If it is not yet listed on [RubyGems](https://rubygems.org/gems/add_auth/versions),
 wait for publication; see [release status](https://addauthgem.com/release-status/).
 Start in your app’s development environment; use the deployment settings
@@ -48,7 +48,7 @@ below before enabling sign-in for users.
 
    ```ruby
    # Gemfile
-   gem "add_auth", "~> 0.5.0"
+   gem "add_auth", "~> 0.5.1"
    ```
 
    Bundler downloads the package from RubyGems and records the resolved

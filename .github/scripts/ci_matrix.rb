@@ -8,7 +8,7 @@ module AddAuthCIMatrix
   RUBIES = %w[3.3 3.4 4.0].freeze
   RAILS = %w[8_0 8_1].freeze
   SUITES = {"ruby" => %w[product migration providers], "postgres" => %w[stores migration native keys]}.freeze
-  BASELINES = %w[0.2.1 0.2.2 0.3.0 0.4.0].freeze
+  BASELINES = %w[0.2.1 0.2.2 0.3.0 0.4.0 0.5.0].freeze
 
   module_function
 

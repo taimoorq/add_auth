@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.1 — 2026-10-21
 
 Security hardening; upgrading is recommended. Refresh ejected account and
 passkey controllers/views through the normal review process.

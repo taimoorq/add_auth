@@ -1,15 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.5.1 — 2026-10-21
 
-Security hardening from an adversarial review. Refresh ejected account and
+Security hardening; upgrading is recommended. Refresh ejected account and
 passkey controllers/views through the normal review process.
 
-- A first email confirmation no longer silently adopts a provider binding made
-  before the address was proved. The confirmation email and page name the
-  provider; only an explicit "Confirm and keep" preserves it, and any other
-  confirmation revokes it. This closes pre-registration of someone else's
-  address with an attacker's provider account.
+- The first email confirmation of an account with a linked sign-in provider
+  names that provider in the email and on the page. Only an explicit "Confirm
+  and keep" preserves the link; any other confirmation removes it.
 - Automatic password lockout gates only password sign-in. It no longer revokes
   existing sessions or blocks passkey, email-link or provider sign-in, never
   counts failures for accounts that cannot use a password, and is cleared by a
